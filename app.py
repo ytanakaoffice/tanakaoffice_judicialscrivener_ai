@@ -57,10 +57,13 @@ if "user" not in st.session_state:
         user_info = login(email, password)
         if user_info:
             st.session_state["user"] = user_info
-            st.rerun() # 再読み込みしてアプリを表示
+            st.rerun() # ここで再読み込みされるため、これ以降の行は実行されません
+            
+    # 【修正箇所】ボタンの外側（かつst.stopの前）に置くのがベストです
+    st.markdown("[利用規約](https://github.com/ytanakaoffice/tanakaoffice_judicialscrivener_ai/blob/main/TERMS.md)")
             
     # ログインしていない場合はここで処理を止め、メインアプリを表示しない
-    st.stop() 
+    st.stop()
 
 # ---------------------------------------------------------
 # ここから下がログイン成功後のメインアプリ処理
