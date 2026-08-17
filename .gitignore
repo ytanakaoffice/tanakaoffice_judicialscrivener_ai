@@ -1,0 +1,7 @@
+# 秘密情報を除外
+.streamlit/secrets.toml
+.env
+
+# その他不要なファイル
+__pycache__/
+.DS_Store

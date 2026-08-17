@@ -1,0 +1,3 @@
+cmd実行文章
+streamlit run sihousyosiAI.py
+
