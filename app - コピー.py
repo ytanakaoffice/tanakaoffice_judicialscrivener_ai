@@ -433,18 +433,12 @@ if not st.session_state.get("user"):
                 background-position: top center;
             }}
             [data-testid="stMainBlockContainer"] {{
-                /* 枠の位置を調整 (下げたい場合は数値を大きくする) */
-                padding-top: 45vh !important; 
-                max-width: 90% !important;
+                padding-top: 28vh !important;
+                max-width: 92% !important;
                 margin: 0 auto !important;
-            }}
-            /* 【ここを変更】白い枠内の余白を狭くしてコンパクトにしました */
-            [data-testid="stMainBlockContainer"] > div:first-child {{
-                padding: 10px 16px 12px 16px !important;
             }}
         }}
 
-        
         [data-testid="stMainBlockContainer"] h1,
         [data-testid="stMainBlockContainer"] h2,
         [data-testid="stMainBlockContainer"] h3,
