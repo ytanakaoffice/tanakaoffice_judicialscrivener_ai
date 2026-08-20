@@ -429,7 +429,7 @@ if not st.session_state.get("user"):
         }}
 
         /* --- 【修正】スマホ表示用の設定 --- */
-        @media (max-width: 600px) {{
+        @media (max-width: 768px) {{
             .stApp {{
                 background-image: linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), url("{bg_sp_b64}");
                 background-position: top center;
@@ -437,41 +437,41 @@ if not st.session_state.get("user"):
             
             /* 全体のコンテナを少し上に調整し、横幅をスリムに */
             [data-testid="stMainBlockContainer"] {{
-                padding-top: 20vh !important;
+                padding-top: 35vh !important;
                 max-width: 85% !important;
                 margin: 0 auto !important;
             }}
 
             /* 白い枠自体の余白を最小限に */
             [data-testid="stMainBlockContainer"] > div:first-child {{
-                padding: 3px !important; 
+                padding: 10px !important; 
             }}
 
             /* 文字サイズを全体的に小さく */
             h2, h3 {{
-                font-size: 1.0rem !important;
-                margin-bottom: 4px !important;
+                font-size: 1.1rem !important;
+                margin-bottom: 5px !important;
             }}
             
             /* 入力欄のサイズ調整 */
             div[data-testid="stTextInput"] {{
-                margin-bottom: -2px !important;
+                margin-bottom: -10px !important;
             }}
             
             input {{
-                padding: 2px !important;
-                font-size: 0.2rem !important;
+                padding: 6px !important;
+                font-size: 0.9rem !important;
             }}
             
             /* ボタンの余白も削る */
             button {{
-                padding: 0.3px 0.3px !important;
-                font-size: 0.2rem !important;
+                padding: 4px 8px !important;
+                font-size: 0.9rem !important;
             }}
             
             /* タブの文字も小さく */
             button[data-baseweb="tab"] p {{
-                font-size: 0.2rem !important;
+                font-size: 0.9rem !important;
             }}
         }}
 
@@ -481,7 +481,7 @@ if not st.session_state.get("user"):
         [data-testid="stMainBlockContainer"] p,
         [data-testid="stMainBlockContainer"] label {{
             color: #0F172A !important;
-            font-weight: 400 !important;
+            font-weight: 700 !important;
         }}
     </style>
     """, unsafe_allow_html=True)
