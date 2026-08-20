@@ -205,13 +205,13 @@ def show_delete_account_dialog():
     sub_id, sub_data = get_stripe_subscription_info(curr_email)
 
     # ガード判定: アプリで有料プラン利用中かつ自動更新が有効な場合のみ先に解約を促す
-    if check_access(curr_email) and sub_data and sub_data.status == "active" and not sub_data.cancel_at_period_end:
-        st.error("【退会エラー】有料プランの自動更新が有効なままです。")
-        st.write("トラブル防止のため、先にサイドバーの「契約管理・解約」ボタンよりサブスクリプションの解約手続き（自動更新の停止）を行ってください。")
-        st.info("※自動更新を停止した後に、再度この退会手続きを行っていただけます。")
-        if st.button("閉じる", key="btn_close_delete_blocked"):
-            st.rerun()
-        return
+    #if check_access(curr_email) and sub_data and sub_data.status == "active" and not sub_data.cancel_at_period_end:
+    #    st.error("【退会エラー】有料プランの自動更新が有効なままです。")
+    #   st.write("トラブル防止のため、先にサイドバーの「契約管理・解約」ボタンよりサブスクリプションの解約手続き（自動更新の停止）を行ってください。")
+    #    st.info("※自動更新を停止した後に、再度この退会手続きを行っていただけます。")
+    #    if st.button("閉じる", key="btn_close_delete_blocked"):
+    #        st.rerun()
+    #    return
 
     # 解約予約中、または未契約・解約済みのアカウントの場合の退会フォーム
     st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
