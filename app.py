@@ -15,7 +15,9 @@ import streamlit as st
 from streamlit_clickable_images import clickable_images
 from supabase import create_client
 
-# ページの設定
+# ==========================================
+# ページ設定
+# ==========================================
 st.set_page_config(
     page_title="田中式 司法書士一問一答｜法律特化AI講師とチャットで会話！その場で疑問をスピード解決", 
     page_icon="📖", 
@@ -26,7 +28,9 @@ st.set_page_config(
 if "user" not in st.session_state:
     st.session_state["user"] = None
 
-# Supabaseクライアントの初期化（一般操作用）
+# ==========================================
+# Supabase & Stripe クライアント初期化
+# ==========================================
 @st.cache_resource
 def init_connection():
     url = st.secrets["supabase"]["SUPABASE_URL"]
@@ -35,7 +39,6 @@ def init_connection():
 
 supabase = init_connection()
 
-# Supabase管理者クライアントの初期化（退会・アカウント削除用）
 def init_admin_connection():
     url = st.secrets["supabase"]["SUPABASE_URL"]
     service_role_key = st.secrets["supabase"].get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -49,11 +52,14 @@ supabase_admin = init_admin_connection()
 if "stripe" in st.secrets and "STRIPE_SECRET_KEY" in st.secrets["stripe"]:
     stripe.api_key = st.secrets["stripe"]["STRIPE_SECRET_KEY"]
 
+# ==========================================
 # 1. 認証機能（Supabase Auth）
+# ==========================================
 def login(email, password):
     try:
+        clean_email = email.strip().lower()
         res = supabase.auth.sign_in_with_password({
-            "email": email,
+            "email": clean_email,
             "password": password
         })
         if res.user:
@@ -68,8 +74,9 @@ def login(email, password):
 
 def signup(email, password):
     try:
+        clean_email = email.strip().lower()
         res = supabase.auth.sign_up({
-            "email": email,
+            "email": clean_email,
             "password": password
         })
         return res
@@ -77,7 +84,6 @@ def signup(email, password):
         st.error(f"登録エラー: {e}")
         return None
 
-# パスワード更新処理（ログイン中用）
 def update_password(new_password):
     try:
         res = supabase.auth.update_user({"password": new_password})
@@ -88,111 +94,42 @@ def update_password(new_password):
         st.error(f"パスワード変更エラー: {e}")
         return False
 
-# パスワード再設定メール送信処理（ログイン前用）
 def reset_password_request(email):
     try:
-        res = supabase.auth.reset_password_for_email(email)
+        clean_email = email.strip().lower()
+        supabase.auth.reset_password_for_email(clean_email)
         return True
     except Exception as e:
         st.error(f"送信エラー: {e}")
         return False
 
-# 契約初期レコード作成
+# ==========================================
+# 2. 決済・サブスクリプション連携（強化版）
+# ==========================================
+
 def ensure_subscription_record(email, user_id):
+    """ユーザーの初期サブスクレコードが存在することを確認（安全な初期化）"""
     try:
-        response = supabase.table("subscriptions").select("email").eq("email", email).execute()
+        clean_email = email.strip().lower()
+        response = supabase.table("subscriptions").select("email").eq("email", clean_email).execute()
         if not response.data:
             supabase.table("subscriptions").insert({
-                "email": email,
+                "email": clean_email,
                 "user_id": user_id,
                 "status": "inactive",
                 "cancel_at_period_end": False,
-                "current_period_end": "1970-01-01T00:00:00+00:00"
+                "current_period_end": None
             }).execute()
     except Exception as e:
         print(f"ensure_subscription_record Error: {e}")
 
-def sync_subscription_from_stripe(email):
-    if not stripe.api_key or not email:
-        return False, "APIキーまたはメールアドレスが設定されていません"
-    try:
-        clean_email = email.strip().lower()
-        sub_id, sub_data = get_stripe_subscription_info(clean_email)
-        
-        # Stripe上にサブスク情報が見つからない場合はDBを上書きせず終了
-        if not sub_data:
-            return False, "Stripe上にサブスクデータが見つかりませんでした（既存データを維持します）"
-
-        def get_field(obj, key, default=None):
-            if isinstance(obj, dict):
-                val = obj.get(key, default)
-            else:
-                val = getattr(obj, key, default)
-            return val if val is not None else default
-
-        status = get_field(sub_data, "status", "inactive")
-        current_period_end = get_field(sub_data, "current_period_end", 0)
-
-        raw_cancel_at_period_end = get_field(sub_data, "cancel_at_period_end", False)
-        raw_cancel_at = get_field(sub_data, "cancel_at", None)
-        cancel_at_period_end = bool(raw_cancel_at_period_end or (raw_cancel_at is not None))
-
-        if current_period_end > 0:
-            end_iso = datetime.fromtimestamp(current_period_end, tz=timezone.utc).isoformat()
-        else:
-            end_iso = "1970-01-01T00:00:00+00:00"
-
-        # 常に有効な値を入れて NULL の混入を防ぐ
-        res = supabase.table("subscriptions").update({
-            "status": status,
-            "cancel_at_period_end": cancel_at_period_end,
-            "current_period_end": end_iso
-        }).eq("email", clean_email).execute()
-
-        if not res.data:
-            return False, f"DB更新対象が見つかりません (検索email: {clean_email})"
-
-        return True, f"同期成功: status={status}, current_period_end={end_iso}"
-
-    except Exception as e:
-        return False, f"DB更新エラー: {e}"
-
-# 判定関数（アクセスの直前にStripeと同期を実行）
-def check_access(email):
-    try:
-        # Stripeから最新情報を同期
-        sync_subscription_from_stripe(email)
-
-        response = supabase.table("subscriptions").select("*").eq("email", email).execute()
-        data = response.data
-        if data:
-            subscription = data[0]
-            period_end = subscription.get("current_period_end", "1970-01-01T00:00:00+00:00")
-            
-            # 初期値やNULLではない有効期限データが存在すること
-            if period_end and period_end != "1970-01-01T00:00:00+00:00":
-                try:
-                    # Supabaseから取得した日時文字列をUTC付きでパース
-                    end_date = datetime.fromisoformat(str(period_end).replace("Z", "+00:00"))
-                    now = datetime.now(timezone.utc)
-                    
-                    # サブスク解約済みであっても、現在時刻が有効期限内であればアクセス許可
-                    if now <= end_date:
-                        return True
-                except Exception as parse_err:
-                    print(f"日付パースエラー: {parse_err}")
-
-        return False
-    except Exception as e:
-        print(f"check_access Error: {e}")
-        return False
-
-# Stripeのサブスクリプション状態を取得する関数（稼働中優先）
 def get_stripe_subscription_info(email):
+    """Stripeから対象ユーザーの最新サブスクリプションを特定して取得"""
     if not stripe.api_key or not email:
         return None, None
     try:
         clean_email = email.strip().lower()
+        # 1. メールアドレスで顧客検索
         customers = stripe.Customer.list(email=clean_email, limit=10)
         if not customers.data:
             return None, None
@@ -203,32 +140,132 @@ def get_stripe_subscription_info(email):
             all_subs.extend(subs.data)
             
         if all_subs:
-            # active または trialing のサブスクを優先。無ければ全体から最新を取得
-            active_subs = [s for s in all_subs if getattr(s, "status", None) in ["active", "trialing"]]
-            target_sub = max(active_subs, key=lambda x: x.created) if active_subs else max(all_subs, key=lambda x: x.created)
-            return target_sub.id, target_sub
+            # active または trialing を最優先、無ければ最新の契約を採用
+            active_subs = []
+            for s in all_subs:
+                s_status = getattr(s, "status", None) or (s.get("status") if isinstance(s, dict) else None)
+                if s_status in ["active", "trialing"]:
+                    active_subs.append(s)
+
+            def get_created(s):
+                return getattr(s, "created", 0) or (s.get("created", 0) if isinstance(s, dict) else 0)
+
+            target_sub = max(active_subs, key=get_created) if active_subs else max(all_subs, key=get_created)
+            target_id = getattr(target_sub, "id", None) or (target_sub.get("id") if isinstance(target_sub, dict) else None)
+            return target_id, target_sub
             
         return None, None
     except Exception as e:
         print(f"Stripe Error: {e}")
         return None, None
 
+def sync_subscription_from_stripe(email):
+    """Stripeの最新サブスク情報をSupabaseのsubscriptionsテーブルに安全に同期"""
+    if not stripe.api_key or not email:
+        return False, "APIキーまたはメールアドレスが未設定です"
+    try:
+        clean_email = email.strip().lower()
+        sub_id, sub_data = get_stripe_subscription_info(clean_email)
+        
+        if not sub_data:
+            return False, "Stripe上にサブスクリプションが見つかりません"
+
+        # 安全な値抽出関数
+        def extract_val(obj, attr_name, default=None):
+            if isinstance(obj, dict):
+                return obj.get(attr_name, default)
+            return getattr(obj, attr_name, default)
+
+        status = extract_val(sub_data, "status", "inactive")
+        current_period_end_ts = extract_val(sub_data, "current_period_end", 0)
+        cancel_at_period_end = bool(extract_val(sub_data, "cancel_at_period_end", False))
+
+        # current_period_end のISO形式変換
+        end_iso = None
+        if current_period_end_ts and int(current_period_end_ts) > 0:
+            end_iso = datetime.fromtimestamp(int(current_period_end_ts), tz=timezone.utc).isoformat()
+
+        update_payload = {
+            "status": status,
+            "cancel_at_period_end": cancel_at_period_end
+        }
+        if end_iso:
+            update_payload["current_period_end"] = end_iso
+
+        res = supabase.table("subscriptions").update(update_payload).eq("email", clean_email).execute()
+
+        if not res.data:
+            # レコードが無ければ作成
+            user_res = supabase.auth.get_user()
+            user_id = user_res.user.id if user_res and user_res.user else None
+            update_payload["email"] = clean_email
+            update_payload["user_id"] = user_id
+            supabase.table("subscriptions").insert(update_payload).execute()
+
+        return True, f"同期成功: status={status}"
+
+    except Exception as e:
+        print(f"sync_subscription_from_stripe Error: {e}")
+        return False, f"同期エラー: {e}"
+
+def check_access(email):
+    """
+    アクセス権限判定:
+    1. status が 'active' または 'trialing' なら即座にアクセス許可
+    2. 解約済みでも現在日時が current_period_end（有効期限）以内であればアクセス許可
+    """
+    try:
+        clean_email = email.strip().lower()
+        
+        # 1. まずStripeと同期
+        sync_subscription_from_stripe(clean_email)
+
+        # 2. Supabase DBから判定
+        response = supabase.table("subscriptions").select("*").eq("email", clean_email).execute()
+        data = response.data
+        if data:
+            subscription = data[0]
+            status = subscription.get("status")
+            period_end = subscription.get("current_period_end")
+
+            # A. アクティブまたはトライアル中の場合は即許可
+            if status in ["active", "trialing"]:
+                return True
+
+            # B. 解約中・過去契約でも有効期限が未来であれば許可
+            if period_end and period_end != "1970-01-01T00:00:00+00:00":
+                try:
+                    end_date = datetime.fromisoformat(str(period_end).replace("Z", "+00:00"))
+                    now = datetime.now(timezone.utc)
+                    if now <= end_date:
+                        return True
+                except Exception as parse_err:
+                    print(f"日付パースエラー: {parse_err}")
+
+        return False
+    except Exception as e:
+        print(f"check_access Error: {e}")
+        return False
+
 # 退会実行処理
 def execute_account_deletion(user_email, user_id):
     try:
-        # 1. Stripe側サブスクリプションの即時キャンセル処理
-        sub_id, sub_data = get_stripe_subscription_info(user_email)
-        if sub_id and sub_data and sub_data.status in ["active", "trialing"]:
-            stripe.Subscription.cancel(sub_id)
+        clean_email = user_email.strip().lower()
+        # 1. Stripe側サブスクリプションの即時キャンセル
+        sub_id, sub_data = get_stripe_subscription_info(clean_email)
+        if sub_id:
+            status = getattr(sub_data, "status", None) or (sub_data.get("status") if isinstance(sub_data, dict) else None)
+            if status in ["active", "trialing"]:
+                stripe.Subscription.cancel(sub_id)
 
-        # 2. Supabase DBの契約テーブルレコード削除
-        supabase.table("subscriptions").delete().eq("email", user_email).execute()
+        # 2. Supabase DBの契約レコード削除
+        supabase.table("subscriptions").delete().eq("email", clean_email).execute()
 
-        # 3. Supabase Authからユーザーアカウント完全削除
+        # 3. Supabase Authからユーザー完全削除
         if supabase_admin:
             supabase_admin.auth.admin.delete_user(user_id)
         else:
-            st.error("管理者キー（SUPABASE_SERVICE_ROLE_KEY）が設定されていないため、アカウント削除を完了できませんでした。")
+            st.error("管理者キー（SUPABASE_SERVICE_ROLE_KEY）が未設定のため、Authアカウント削除を完了できませんでした。")
             return False
 
         return True
@@ -236,7 +273,9 @@ def execute_account_deletion(user_email, user_id):
         st.error(f"退会処理中にエラーが発生しました: {e}")
         return False
 
-# 共通ユーティリティ関数
+# ==========================================
+# 3. ユーティリティ・ダイアログ
+# ==========================================
 def get_image_base64(path):
     try:
         with open(path, "rb") as f:
@@ -252,7 +291,6 @@ def render_header_image():
     else:
         st.title("田中式 司法書士一問一答")
 
-# 法的表記・モーダルダイアログ機能
 @st.dialog("利用規約", width="large")
 def show_terms_dialog():
     if os.path.exists("TERMS.md"):
@@ -265,7 +303,6 @@ def show_terms_dialog():
     if st.button("閉じる", key="btn_close_terms"):
         st.rerun()
 
-# パスワード変更ダイアログ（ログイン中用）
 @st.dialog("パスワードの変更", width="medium")
 def show_change_password_dialog():
     st.write("新しいパスワードを入力してください。")
@@ -284,7 +321,6 @@ def show_change_password_dialog():
                 st.success("パスワードを変更しました。")
                 st.rerun()
 
-# パスワード再設定ダイアログ（ログイン前用）
 @st.dialog("パスワードの再設定", width="medium")
 def show_reset_password_dialog():
     st.write("ご登録済みのメールアドレスを入力してください。パスワード再設定用の案内を送信します。")
@@ -296,7 +332,6 @@ def show_reset_password_dialog():
             if reset_password_request(reset_email):
                 st.success("パスワード再設定用のメールを送信しました。メールボックスをご確認ください。")
 
-# 退会ダイアログ関数
 @st.dialog("退会手続き（アカウント完全削除）", width="medium")
 def show_delete_account_dialog():
     if not st.session_state.get("user"):
@@ -306,10 +341,9 @@ def show_delete_account_dialog():
     curr_email = st.session_state["user"]["email"]
     curr_id = st.session_state["user"]["id"]
 
-    # 1. Supabaseのsubscriptionsテーブルから契約情報を取得
     is_active_recurring = False
     try:
-        response = supabase.table("subscriptions").select("status, cancel_at_period_end").eq("email", curr_email).execute()
+        response = supabase.table("subscriptions").select("status, cancel_at_period_end").eq("email", curr_email.strip().lower()).execute()
         if response.data:
             sub_data = response.data[0]
             status = sub_data.get("status")
@@ -320,7 +354,6 @@ def show_delete_account_dialog():
     except Exception as e:
         print(f"DB取得エラー: {e}")
 
-    # 2. 自動更新が継続中の場合は退会をブロックして解約へ誘導
     if is_active_recurring:
         st.error("【解約が必要です】サブスクリプションの自動更新が有効です。")
         st.write(
@@ -339,7 +372,6 @@ def show_delete_account_dialog():
         st.info("※Stripe画面で解約手続き（自動更新の停止）を完了後、再度この画面からアカウント削除を行ってください。")
         return
 
-    # 3. 自動更新停止済みまたは未契約の場合は注意事項を経て退会を許可
     st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
 
     st.markdown("""
@@ -421,24 +453,19 @@ def show_tokusho_dialog():
                 st.session_state["show_delete_modal"] = True
                 st.rerun()
 
-# URLパラメータ判定
 if st.query_params.get("page") == "tokusho":
     show_tokusho_dialog()
 
-# 特商法ダイアログから遷移指示があった場合に退会ダイアログを開く
 if st.session_state.get("show_delete_modal"):
     st.session_state["show_delete_modal"] = False
     show_delete_account_dialog()
 
+# ==========================================
 # A. 未ログイン時の表示
+# ==========================================
 if not st.session_state.get("user"):
-    bg_pc_b64 = get_image_base64("images/1_background_PC.png")
-    if not bg_pc_b64:
-        bg_pc_b64 = get_image_base64("1_background_PC.png")
-    
-    bg_sp_b64 = get_image_base64("images/1_background_mobile.png")
-    if not bg_sp_b64:
-        bg_sp_b64 = get_image_base64("1_background_mobile.png")
+    bg_pc_b64 = get_image_base64("images/1_background_PC.png") or get_image_base64("1_background_PC.png")
+    bg_sp_b64 = get_image_base64("images/1_background_mobile.png") or get_image_base64("1_background_mobile.png")
     
     st.markdown(f"""
     <style>
@@ -592,14 +619,15 @@ if not st.session_state.get("user"):
 
     st.stop()
 
+# ==========================================
 # B. 未契約・期限切れ時の案内画面表示
+# ==========================================
 user_email = st.session_state["user"]["email"]
 user_id = st.session_state["user"]["id"]
 
 ensure_subscription_record(user_email, user_id)
 
 if not check_access(user_email):
-  
     st.title("契約のご案内")
     st.warning("有効なサブスクリプションが確認できませんでした。AI学習機能を利用するには有料プランへのご登録が必要です。")
     
@@ -608,6 +636,12 @@ if not check_access(user_email):
     
     st.link_button("決済画面へ進む（Stripe Checkout）", stripe_url, type="primary", use_container_width=True)
     
+    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+    if st.button("🔄 決済完了後の状態を再確認する", key="btn_recheck_subscription", use_container_width=True):
+        with st.spinner("Stripeと契約状態を同期中..."):
+            sync_subscription_from_stripe(user_email)
+            st.rerun()
+
     st.markdown("---")
     col_unsub_tokusho, col_unsub_delete = st.columns(2)
     with col_unsub_tokusho:
@@ -619,7 +653,9 @@ if not check_access(user_email):
 
     st.stop()
 
-# C. メイン処理
+# ==========================================
+# C. メイン処理（問題演習・AIチャット）
+# ==========================================
 st.markdown("""
 <style>
     .stApp {
@@ -705,7 +741,6 @@ def send_report_email(q_no, reason):
         print(f"Mail Error: {e}")
         return False
 
-# 音声生成（VOICEVOX連携）
 def get_voice_audio_base64(text, speaker_id=2):
     voicevox_url = st.secrets["voicevox"]["VOICEVOX_URL"]
     try:
@@ -842,8 +877,6 @@ def render_inline_chat(row):
         st.rerun()
 
 render_ai_teacher()
-
-# -----------------------------------------------
 
 st.sidebar.title("メニュー")
 st.sidebar.write(f"ログイン中: {user_email}")
