@@ -10,7 +10,6 @@ from email.mime.text import MIMEText
 
 import pandas as pd
 import requests
-import stripe
 import streamlit as st
 from streamlit_clickable_images import clickable_images
 from supabase import create_client
@@ -26,7 +25,7 @@ st.set_page_config(
 if "user" not in st.session_state:
     st.session_state["user"] = None
 
-# Supabaseクライアントの初期化（一般操作用）
+# Supabaseクライアントの初期化
 @st.cache_resource
 def init_connection():
     url = st.secrets["supabase"]["SUPABASE_URL"]
@@ -34,21 +33,6 @@ def init_connection():
     return create_client(url, key)
 
 supabase = init_connection()
-
-# Supabase管理者クライアントの初期化（退会・アカウント削除用）
-@st.cache_resource
-def init_admin_connection():
-    url = st.secrets["supabase"]["SUPABASE_URL"]
-    service_role_key = st.secrets["supabase"].get("SUPABASE_SERVICE_ROLE_KEY", "")
-    if service_role_key:
-        return create_client(url, service_role_key)
-    return None
-
-supabase_admin = init_admin_connection()
-
-# Stripe APIキーのセットアップ
-if "stripe" in st.secrets and "STRIPE_SECRET_KEY" in st.secrets["stripe"]:
-    stripe.api_key = st.secrets["stripe"]["STRIPE_SECRET_KEY"]
 
 # 1. 認証機能（Supabase Auth）
 def login(email, password):
@@ -116,49 +100,6 @@ def check_access(email):
         print(f"check_access Error: {e}")
         return False
 
-# Stripeのサブスクリプション状態を取得する関数
-def get_stripe_subscription_info(email):
-    if not stripe.api_key:
-        return None, None
-    try:
-        customers = stripe.Customer.list(email=email, limit=1)
-        if not customers.data:
-            return None, None
-        
-        customer_id = customers.data[0].id
-        subscriptions = stripe.Subscription.list(customer=customer_id, status="all", limit=1)
-        
-        if subscriptions.data:
-            sub = subscriptions.data[0]
-            return sub.id, sub
-        return None, None
-    except Exception as e:
-        print(f"Stripe Error: {e}")
-        return None, None
-
-# 退会実行処理
-def execute_account_deletion(user_email, user_id):
-    try:
-        # 1. Stripe側サブスクリプションの即時キャンセル処理
-        sub_id, sub_data = get_stripe_subscription_info(user_email)
-        if sub_id and sub_data and sub_data.status in ["active", "trialing"]:
-            stripe.Subscription.cancel(sub_id)
-
-        # 2. Supabase DBの契約テーブルレコード削除
-        supabase.table("subscriptions").delete().eq("email", user_email).execute()
-
-        # 3. Supabase Authからユーザーアカウント完全削除
-        if supabase_admin:
-            supabase_admin.auth.admin.delete_user(user_id)
-        else:
-            st.error("管理者キー（SUPABASE_SERVICE_ROLE_KEY）が設定されていないため、アカウント削除を完了できませんでした。")
-            return False
-
-        return True
-    except Exception as e:
-        st.error(f"退会処理中にエラーが発生しました: {e}")
-        return False
-
 # 共通ユーティリティ関数
 def get_image_base64(path):
     try:
@@ -167,6 +108,7 @@ def get_image_base64(path):
     except FileNotFoundError:
         return ""
 
+# 問題を解く画面のヘッダー画像のみ 1_title.png を使用
 def render_header_image():
     if os.path.exists("images/1_title.png"):
         st.image("images/1_title.png", use_container_width=True)
@@ -187,48 +129,6 @@ def show_terms_dialog():
         
     if st.button("閉じる", key="btn_close_terms"):
         st.rerun()
-
-# 自動退会ダイアログ
-@st.dialog("退会手続き（アカウント完全削除）", width="medium")
-def show_delete_account_dialog():
-    if not st.session_state.get("user"):
-        st.warning("ログインしていません。")
-        return
-
-    curr_email = st.session_state["user"]["email"]
-    curr_id = st.session_state["user"]["id"]
-
-    sub_id, sub_data = get_stripe_subscription_info(curr_email)
-
-    # ガード判定: 自動更新が有効のまま（cancel_at_period_end == False）の場合は先に解約を促す
-    if sub_data and sub_data.status == "active" and not sub_data.cancel_at_period_end:
-        st.error("【退会エラー】有料プランの自動更新が有効なままです。")
-        st.write("トラブル防止のため、先にサイドバーの「契約管理・解約」ボタンよりサブスクリプションの解約手続き（自動更新の停止）を行ってください。")
-        st.info("※自動更新を停止した後に、再度この退会手続きを行っていただけます。")
-        if st.button("閉じる", key="btn_close_delete_blocked"):
-            st.rerun()
-        return
-
-    # 解約予約中、または未契約・解約済みのアカウントの場合の退会フォーム
-    st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
-
-    st.markdown("""
-    ・注意事項および同意事項:
-    1. 残りの契約有効期間がある場合でも、退会完了と同時にサービスの利用権限は即時失効します。
-    2. 日割り計算等による返金・決済のキャンセルや返金対応は理由を問わず一切行われません。
-    3. アカウント削除後に同じメールアドレスで再登録しても、過去のデータは引き継げません。
-    """)
-
-    agree = st.checkbox("上記注意事項（残期間の放棄・返金不可・データ全削除）に同意します", key="chk_agree_delete")
-
-    if st.button("アカウントを完全に削除して退会する", type="primary", disabled=not agree, use_container_width=True):
-        with st.spinner("退会処理を実行中..."):
-            success = execute_account_deletion(curr_email, curr_id)
-            if success:
-                st.success("退会手続きが完了しました。ご利用ありがとうございました。")
-                supabase.auth.sign_out()
-                st.session_state.clear()
-                st.rerun()
 
 @st.dialog("特定商取引法に基づく表記・退会案内", width="large")
 def show_tokusho_dialog():
@@ -272,29 +172,21 @@ def show_tokusho_dialog():
     ### 解約およびアカウント削除（退会）について
 
     ・解約方法（サブスクリプション停止）：
-    サイドバーの「契約管理・解約」ボタンからいつでも自動更新の停止が可能です。解約手続き後も、現在の契約有効期限まではサービスをご利用いただけます。
+    サイドバーの「契約管理・解約（Stripe）」ボタンからいつでも自動更新の停止が可能です。解約手続き後も、現在の契約有効期限まではサービスをご利用いただけます。
 
     ・アカウント完全削除（退会）：
-    「契約管理・解約」にて自動更新を停止後、アプリ内の退会ボタンから即時アカウントを削除可能です。または上記お問い合わせ先メールアドレスまで「退会希望」と記載してご連絡いただくことでも対応いたします。
+    登録メールアドレスや利用履歴の完全消去をご希望の場合は、上記お問い合わせ先メールアドレスまで「退会希望」と記載してご連絡ください。ご本人様確認のうえ手動にて順次対応いたします。
     """)
-
-    col_dialog_close, col_dialog_delete = st.columns(2)
-    with col_dialog_close:
-        if st.button("閉じる", key="btn_close_tokusho", use_container_width=True):
-            if "page" in st.query_params:
-                del st.query_params["page"]
-            st.rerun()
-            
-    with col_dialog_delete:
-        if st.session_state.get("user"):
-            if st.button("退会手続きへ進む", key="btn_goto_delete_from_tokusho", use_container_width=True):
-                show_delete_account_dialog()
+    if st.button("閉じる", key="btn_close_tokusho"):
+        if "page" in st.query_params:
+            del st.query_params["page"]
+        st.rerun()
 
 # URLパラメータ判定
 if st.query_params.get("page") == "tokusho":
     show_tokusho_dialog()
 
-# A. 未ログイン時の表示
+# A. 未ログイン時の表示（PC: 1_background_PC.png / スマホ: 1_background_mobile.png）
 if not st.session_state.get("user"):
     bg_pc_b64 = get_image_base64("images/1_background_PC.png")
     if not bg_pc_b64:
@@ -468,13 +360,8 @@ if not check_access(user_email):
     st.link_button("決済画面へ進む（Stripe Checkout）", stripe_url, type="primary", use_container_width=True)
     
     st.markdown("---")
-    col_unsub_tokusho, col_unsub_delete = st.columns(2)
-    with col_unsub_tokusho:
-        if st.button("特定商取引法に基づく表記", key="btn_tokusho_unsubscribed", use_container_width=True):
-            show_tokusho_dialog()
-    with col_unsub_delete:
-        if st.button("退会手続き（アカウント削除）", key="btn_delete_unsubscribed", use_container_width=True):
-            show_delete_account_dialog()
+    if st.button("特定商取引法に基づく表記", key="btn_tokusho_unsubscribed"):
+        show_tokusho_dialog()
 
     st.stop()
 
@@ -723,14 +610,8 @@ with col_stripe:
         unsafe_allow_html=True
     )
 
-col_tokusho_side, col_delete_side = st.sidebar.columns(2)
-with col_tokusho_side:
-    if st.button("特商法表記", key="btn_sidebar_tokusho", use_container_width=True):
-        show_tokusho_dialog()
-
-with col_delete_side:
-    if st.button("退会手続き", key="btn_sidebar_delete_account", use_container_width=True):
-        show_delete_account_dialog()
+if st.sidebar.button("特定商取引法表記・退会案内", key="btn_sidebar_tokusho", use_container_width=True):
+    show_tokusho_dialog()
 
 st.sidebar.markdown("---")
 

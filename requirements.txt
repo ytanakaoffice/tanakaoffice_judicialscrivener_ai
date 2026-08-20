@@ -69,6 +69,7 @@ storage3==2.31.0
 streamlit==1.61.1
 streamlit-clickable-images==0.0.3
 StrEnum==0.4.15
+stripe>=15.0.0
 supabase==2.31.0
 supabase-auth==2.31.0
 supabase-functions==2.31.0
