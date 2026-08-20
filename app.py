@@ -243,7 +243,7 @@ def show_reset_password_dialog():
             if reset_password_request(reset_email):
                 st.success("パスワード再設定用のメールを送信しました。メールボックスをご確認ください。")
 
-# 修正後の退会ダイアログ関数
+# 修正後の退会ダイアログ関数（Supabase DBの cancel_at_period_end を参照）
 @st.dialog("退会手続き（アカウント完全削除）", width="medium")
 def show_delete_account_dialog():
     if not st.session_state.get("user"):
@@ -253,14 +253,20 @@ def show_delete_account_dialog():
     curr_email = st.session_state["user"]["email"]
     curr_id = st.session_state["user"]["id"]
 
-    sub_id, sub_data = get_stripe_subscription_info(curr_email)
-
-    # 1. サブスクリプションが自動更新継続中（cancel_at_period_end が False）か判定
+    # 1. Supabaseのsubscriptionsテーブルから契約情報を取得
     is_active_recurring = False
-    if sub_data and sub_data.status in ["active", "trialing"]:
-        # Stripeの解約予約フラグがFalseの場合は継続中
-        if not getattr(sub_data, "cancel_at_period_end", False):
-            is_active_recurring = True
+    try:
+        response = supabase.table("subscriptions").select("status, cancel_at_period_end").eq("email", curr_email).execute()
+        if response.data:
+            sub_data = response.data[0]
+            status = sub_data.get("status")
+            cancel_at_period_end = sub_data.get("cancel_at_period_end", False)
+
+            # ステータスが active / trialing かつ、自動更新停止（cancel_at_period_end）が False の場合のみ退会をブロック
+            if status in ["active", "trialing"] and not cancel_at_period_end:
+                is_active_recurring = True
+    except Exception as e:
+        print(f"DB取得エラー: {e}")
 
     # 2. 自動更新が継続中の場合は退会をブロックして解約へ誘導
     if is_active_recurring:
@@ -281,7 +287,7 @@ def show_delete_account_dialog():
         st.info("※Stripe画面で解約手続き（自動更新の停止）を完了後、再度この画面からアカウント削除を行ってください。")
         return
 
-    # 3. 自動更新停止済み（または未契約）の場合のみ、注意事項への同意を経て退会を許可
+    # 3. 自動更新停止済み（残期間あり含む）または未契約の場合は注意事項を経て退会を許可
     st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
 
     st.markdown("""
