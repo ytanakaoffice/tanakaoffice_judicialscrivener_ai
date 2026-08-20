@@ -116,21 +116,25 @@ def check_access(email):
         print(f"check_access Error: {e}")
         return False
 
-# Stripeのサブスクリプション状態を取得する関数
+# Stripeのサブスクリプション状態を取得する関数（最新契約を取得するよう修正）
 def get_stripe_subscription_info(email):
     if not stripe.api_key:
         return None, None
     try:
-        customers = stripe.Customer.list(email=email, limit=1)
+        customers = stripe.Customer.list(email=email, limit=10)
         if not customers.data:
             return None, None
         
-        customer_id = customers.data[0].id
-        subscriptions = stripe.Subscription.list(customer=customer_id, status="all", limit=1)
-        
-        if subscriptions.data:
-            sub = subscriptions.data[0]
-            return sub.id, sub
+        all_subs = []
+        for customer in customers.data:
+            subs = stripe.Subscription.list(customer=customer.id, status="all", limit=10)
+            all_subs.extend(subs.data)
+            
+        if all_subs:
+            # 作成日時が最も新しいサブスクリプションを特定
+            latest_sub = max(all_subs, key=lambda x: x.created)
+            return latest_sub.id, latest_sub
+            
         return None, None
     except Exception as e:
         print(f"Stripe Error: {e}")
