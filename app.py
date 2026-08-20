@@ -173,8 +173,11 @@ def execute_account_deletion(user_email, user_id):
             except Exception as e:
                 print(f"Stripe cancel warning: {e}")
 
-        # 2. Supabase DBの契約レコード削除
-        supabase.table("subscriptions").delete().eq("email", clean_email).execute()
+        # 2. Supabase DBの契約レコードを【管理者権限】で確実に強制削除する（RLSをバイパス）
+        if supabase_admin:
+            supabase_admin.table("subscriptions").delete().eq("email", clean_email).execute()
+        else:
+            supabase.table("subscriptions").delete().eq("email", clean_email).execute()
 
         # 3. Supabase Authからユーザー完全削除
         if supabase_admin:
