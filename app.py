@@ -712,7 +712,7 @@ with col_out:
         st.session_state.clear()
         st.rerun()
 
-stripe_portal_url = st.secrets["stripe"]["STRIPE_PORTAL_URL"]
+stripe_portal_url = st.secrets.get("stripe", {}).get("STRIPE_PORTAL_URL", "#")
 
 with col_stripe:
     st.markdown(
