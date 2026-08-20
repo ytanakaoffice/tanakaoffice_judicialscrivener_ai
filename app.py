@@ -113,12 +113,12 @@ def ensure_subscription_record(email, user_id):
         clean_email = email.strip().lower()
         response = supabase.table("subscriptions").select("email").eq("email", clean_email).execute()
         if not response.data:
-            supabase.table("subscriptions").insert({
+             supabase.table("subscriptions").insert({
                 "email": clean_email,
                 "user_id": user_id,
                 "status": "inactive",
                 "cancel_at_period_end": False,
-                "current_period_end": None
+                "current_period_end": "1970-01-01T00:00:00+00:00"  # ← Noneを日時に書き換える！
             }).execute()
     except Exception as e:
         print(f"ensure_subscription_record Error: {e}")
