@@ -410,6 +410,7 @@ if not st.session_state.get("user"):
             visibility: hidden;
         }}
         
+        /* PC版の基本設定はそのまま */
         [data-testid="stMainBlockContainer"] {{
             padding-top: 44vh !important;
             padding-bottom: 20px !important;
@@ -427,69 +428,60 @@ if not st.session_state.get("user"):
             backdrop-filter: blur(6px) !important;
         }}
 
+        /* --- 【修正】スマホ表示用の設定 --- */
         @media (max-width: 768px) {{
             .stApp {{
                 background-image: linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), url("{bg_sp_b64}");
                 background-position: top center;
             }}
+            
+            /* 全体のコンテナを少し上に調整し、横幅をスリムに */
             [data-testid="stMainBlockContainer"] {{
-                /* 枠の位置を調整 (下げたい場合は数値を大きくする) */
-                padding-top: 45vh !important; 
-                max-width: 90% !important;
+                padding-top: 35vh !important;
+                max-width: 85% !important;
                 margin: 0 auto !important;
             }}
-            /* 【ここを変更】白い枠内の余白を狭くしてコンパクトにしました */
+
+            /* 白い枠自体の余白を最小限に */
             [data-testid="stMainBlockContainer"] > div:first-child {{
-                padding: 10px 16px 12px 16px !important;
+                padding: 10px !important; 
+            }}
+
+            /* 文字サイズを全体的に小さく */
+            h2, h3 {{
+                font-size: 1.1rem !important;
+                margin-bottom: 5px !important;
+            }}
+            
+            /* 入力欄のサイズ調整 */
+            div[data-testid="stTextInput"] {{
+                margin-bottom: -10px !important;
+            }}
+            
+            input {{
+                padding: 6px !important;
+                font-size: 0.9rem !important;
+            }}
+            
+            /* ボタンの余白も削る */
+            button {{
+                padding: 4px 8px !important;
+                font-size: 0.9rem !important;
+            }}
+            
+            /* タブの文字も小さく */
+            button[data-baseweb="tab"] p {{
+                font-size: 0.9rem !important;
             }}
         }}
 
-        
+        /* 文字色の設定などは維持 */
         [data-testid="stMainBlockContainer"] h1,
         [data-testid="stMainBlockContainer"] h2,
-        [data-testid="stMainBlockContainer"] h3,
         [data-testid="stMainBlockContainer"] p,
-        [data-testid="stMainBlockContainer"] label,
-        [data-testid="stMainBlockContainer"] span,
-        label[data-testid="stWidgetLabel"] p,
-        div[data-testid="stWidgetLabel"] p,
-        .stCheckbox label span {{
+        [data-testid="stMainBlockContainer"] label {{
             color: #0F172A !important;
             font-weight: 700 !important;
-        }}
-
-        div[data-baseweb="tab-list"] {{
-            background-color: transparent !important;
-            border-bottom: 2px solid #cbd5e1 !important;
-            margin-bottom: 12px !important;
-        }}
-
-        button[data-baseweb="tab"] {{
-            padding-top: 2px !important;
-            padding-bottom: 8px !important;
-        }}
-
-        button[data-baseweb="tab"] p {{
-            color: #0F172A !important;
-            font-weight: 700 !important;
-            font-size: 1.05rem !important;
-        }}
-
-        div[data-baseweb="tab-panel"] {{
-            background-color: transparent !important;
-            padding: 0 !important;
-            box-shadow: none !important;
-        }}
-
-        div[data-testid="stTextInput"] {{
-            margin-bottom: -8px !important;
-        }}
-
-        [data-testid="stForm"] {{
-            background-color: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-            box-shadow: none !important;
         }}
     </style>
     """, unsafe_allow_html=True)
