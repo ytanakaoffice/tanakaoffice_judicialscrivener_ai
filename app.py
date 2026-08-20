@@ -819,6 +819,26 @@ def render_inline_chat(row):
 
 render_ai_teacher()
 
+# --- デバッグ表示（原因確認後に削除してください） ---
+with st.sidebar.expander("🔍 Stripe同期デバッグ"):
+    try:
+        sub_id, sub_data = get_stripe_subscription_info(user_email)
+        if sub_data:
+            st.write("【Stripeの生のデータ】")
+            st.write(f"ID: {sub_id}")
+            st.write(f"status: {getattr(sub_data, 'status', '不明')}")
+            st.write(f"cancel_at_period_end: {getattr(sub_data, 'cancel_at_period_end', '不明')}")
+            
+            if st.button("手動同期を実行"):
+                sync_subscription_from_stripe(user_email)
+                st.success("同期を実行しました")
+                st.rerun()
+        else:
+            st.warning("Stripe上にサブスクデータが見つかりませんでした。")
+    except Exception as dbg_err:
+        st.error(f"エラー: {dbg_err}")
+# -----------------------------------------------
+
 st.sidebar.title("メニュー")
 st.sidebar.write(f"ログイン中: {user_email}")
 
