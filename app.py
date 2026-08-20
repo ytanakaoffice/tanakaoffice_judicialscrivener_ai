@@ -1,5 +1,5 @@
 import base64
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import random
@@ -14,7 +14,6 @@ import stripe
 import streamlit as st
 from streamlit_clickable_images import clickable_images
 from supabase import create_client
-from datetime import datetime, timezone
 
 # ページの設定
 st.set_page_config(
@@ -106,7 +105,9 @@ def ensure_subscription_record(email, user_id):
             supabase.table("subscriptions").insert({
                 "email": email,
                 "user_id": user_id,
-                "status": "inactive"
+                "status": "inactive",
+                "cancel_at_period_end": False,
+                "current_period_end": "1970-01-01T00:00:00+00:00"
             }).execute()
     except Exception as e:
         print(f"ensure_subscription_record Error: {e}")
@@ -118,29 +119,30 @@ def sync_subscription_from_stripe(email):
         clean_email = email.strip().lower()
         sub_id, sub_data = get_stripe_subscription_info(clean_email)
         
+        # Stripe上にサブスク情報が見つからない場合はDBを上書きせず終了
         if not sub_data:
-            return False, "Stripe上にサブスクデータが見つかりませんでした"
+            return False, "Stripe上にサブスクデータが見つかりませんでした（既存データを維持します）"
 
-        # 辞書形式・オブジェクト形式のどちらでも安全に値を取り出す関数
         def get_field(obj, key, default=None):
             if isinstance(obj, dict):
-                return obj.get(key, default)
-            return getattr(obj, key, default)
+                val = obj.get(key, default)
+            else:
+                val = getattr(obj, key, default)
+            return val if val is not None else default
 
         status = get_field(sub_data, "status", "inactive")
+        current_period_end = get_field(sub_data, "current_period_end", 0)
+
         raw_cancel_at_period_end = get_field(sub_data, "cancel_at_period_end", False)
         raw_cancel_at = get_field(sub_data, "cancel_at", None)
-        
-        # 解約予約フラグまたは解約予定日時の有無で判定
         cancel_at_period_end = bool(raw_cancel_at_period_end or (raw_cancel_at is not None))
 
-        # UTCタイムゾーンを明示してISO8601文字列へ変換
-        current_period_end = get_field(sub_data, "current_period_end", None)
-        end_iso = None
-        if current_period_end:
+        if current_period_end > 0:
             end_iso = datetime.fromtimestamp(current_period_end, tz=timezone.utc).isoformat()
+        else:
+            end_iso = "1970-01-01T00:00:00+00:00"
 
-        # DB更新（正規化した clean_email を使用）
+        # 常に有効な値を入れて NULL の混入を防ぐ
         res = supabase.table("subscriptions").update({
             "status": status,
             "cancel_at_period_end": cancel_at_period_end,
@@ -150,7 +152,7 @@ def sync_subscription_from_stripe(email):
         if not res.data:
             return False, f"DB更新対象が見つかりません (検索email: {clean_email})"
 
-        return True, f"同期成功: status={status}, cancel_at_period_end={cancel_at_period_end}, current_period_end={end_iso}"
+        return True, f"同期成功: status={status}, current_period_end={end_iso}"
 
     except Exception as e:
         return False, f"DB更新エラー: {e}"
@@ -165,17 +167,16 @@ def check_access(email):
         data = response.data
         if data:
             subscription = data[0]
-            status = subscription.get("status")
-            period_end = subscription.get("current_period_end")
+            period_end = subscription.get("current_period_end", "1970-01-01T00:00:00+00:00")
             
-            # 有効なステータス（active, trialing, または解約済みの canceled）かつ 期限データが存在すること
-            if status in ["active", "trialing", "canceled"] and period_end:
+            # 初期値やNULLではない有効期限データが存在すること
+            if period_end and period_end != "1970-01-01T00:00:00+00:00":
                 try:
                     # Supabaseから取得した日時文字列をUTC付きでパース
                     end_date = datetime.fromisoformat(str(period_end).replace("Z", "+00:00"))
                     now = datetime.now(timezone.utc)
                     
-                    # 現在時刻が有効期限内であればアクセス許可
+                    # サブスク解約済みであっても、現在時刻が有効期限内であればアクセス許可
                     if now <= end_date:
                         return True
                 except Exception as parse_err:
