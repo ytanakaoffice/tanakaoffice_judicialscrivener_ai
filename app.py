@@ -114,7 +114,7 @@ def ensure_subscription_record(email, user_id):
 # Stripeの最新情報を取得してSupabase DBに同期・更新する関数
 def sync_subscription_from_stripe(email):
     if not stripe.api_key or not email:
-        return
+        return False, "APIキーまたはメールアドレスが設定されていません"
     try:
         clean_email = email.strip().lower()
         sub_id, sub_data = get_stripe_subscription_info(clean_email)
@@ -122,25 +122,32 @@ def sync_subscription_from_stripe(email):
         if sub_data:
             status = getattr(sub_data, "status", "inactive")
             
-            # cancel_at_period_end が True、または cancel_at に日付がセットされていれば解約予約とみなす
             raw_cancel_at_period_end = getattr(sub_data, "cancel_at_period_end", False)
             raw_cancel_at = getattr(sub_data, "cancel_at", None)
             
-            cancel_at_period_end = bool(raw_cancel_at_period_end or raw_cancel_at)
+            # cancel_at に値がある、または cancel_at_period_end が True なら解約予約(True)
+            cancel_at_period_end = bool(raw_cancel_at_period_end or (raw_cancel_at is not None))
 
             current_period_end = getattr(sub_data, "current_period_end", None)
             end_iso = None
             if current_period_end:
                 end_iso = datetime.fromtimestamp(current_period_end).isoformat()
 
-            supabase.table("subscriptions").update({
+            # DB更新の実行
+            res = supabase.table("subscriptions").update({
                 "status": status,
                 "cancel_at_period_end": cancel_at_period_end,
                 "current_period_end": end_iso
             }).eq("email", email).execute()
-    except Exception as e:
-        print(f"同期エラー: {e}")
 
+            if not res.data:
+                return False, f"DB更新対象が見つかりません (検索email: {email})"
+
+            return True, f"同期成功: cancel_at_period_end を {cancel_at_period_end} に更新しました"
+        return False, "Stripe上にサブスクデータが見つかりませんでした"
+    except Exception as e:
+        return False, f"DB更新エラー: {e}"
+    
 # 判定関数（アクセスの直前にStripeと同期を実行）
 def check_access(email):
     try:
@@ -824,7 +831,7 @@ def render_inline_chat(row):
 
 render_ai_teacher()
 
-# # --- デバッグ表示 ---
+# デバッグ表示
 with st.sidebar.expander("🔍 Stripe同期デバッグ"):
     try:
         sub_id, sub_data = get_stripe_subscription_info(user_email)
@@ -836,13 +843,16 @@ with st.sidebar.expander("🔍 Stripe同期デバッグ"):
             st.write(f"cancel_at: {getattr(sub_data, 'cancel_at', 'なし')}")
             
             if st.button("手動同期を実行"):
-                sync_subscription_from_stripe(user_email)
-                st.success("同期を実行しました")
-                st.rerun()
+                success, msg = sync_subscription_from_stripe(user_email)
+                if success:
+                    st.success(msg)
+                else:
+                    st.error(msg)
         else:
             st.warning("Stripe上にサブスクデータが見つかりませんでした。")
     except Exception as dbg_err:
         st.error(f"エラー: {dbg_err}")
+
 # -----------------------------------------------
 
 st.sidebar.title("メニュー")
