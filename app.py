@@ -243,7 +243,7 @@ def show_reset_password_dialog():
             if reset_password_request(reset_email):
                 st.success("パスワード再設定用のメールを送信しました。メールボックスをご確認ください。")
 
-# 自動退会ダイアログ
+# 修正後の退会ダイアログ関数
 @st.dialog("退会手続き（アカウント完全削除）", width="medium")
 def show_delete_account_dialog():
     if not st.session_state.get("user"):
@@ -255,12 +255,39 @@ def show_delete_account_dialog():
 
     sub_id, sub_data = get_stripe_subscription_info(curr_email)
 
+    # 1. サブスクリプションが自動更新継続中（cancel_at_period_end が False）か判定
+    is_active_recurring = False
+    if sub_data and sub_data.status in ["active", "trialing"]:
+        # Stripeの解約予約フラグがFalseの場合は継続中
+        if not getattr(sub_data, "cancel_at_period_end", False):
+            is_active_recurring = True
+
+    # 2. 自動更新が継続中の場合は退会をブロックして解約へ誘導
+    if is_active_recurring:
+        st.error("【解約が必要です】サブスクリプションの自動更新が有効です。")
+        st.write(
+            "アカウントを削除する前に、先に『契約管理・解約』からサブスクリプションの解約（自動更新停止）を行ってください。"
+            "解約を行わずにアカウントを削除すると、次回以降の自動請求が継続してしまう恐れがあります。"
+        )
+        
+        stripe_portal_url = st.secrets.get("stripe", {}).get("STRIPE_PORTAL_URL", "#")
+        st.markdown(
+            f'<a href="{stripe_portal_url}" target="_blank">'
+            f'<button style="width:100%; padding:10px; border-radius:6px; background-color:#4F46E5; color:white; border:none; cursor:pointer; font-weight:bold;">'
+            f'契約管理画面（Stripe）で解約手続きをする'
+            f'</button></a>',
+            unsafe_allow_html=True
+        )
+        st.info("※Stripe画面で解約手続き（自動更新の停止）を完了後、再度この画面からアカウント削除を行ってください。")
+        return
+
+    # 3. 自動更新停止済み（または未契約）の場合のみ、注意事項への同意を経て退会を許可
     st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
 
     st.markdown("""
     ・注意事項および同意事項:
-    1. 残りの契約有効期間がある場合でも、退会完了と同時にサービスの利用権限は即時失効します。
-    2. 日割り計算等による返金・決済のキャンセルや返金対応は理由を問わず一切行われません。
+    1. 解約済みサブスクリプションの残りの契約有効期間がある場合でも、退会完了と同時にサービスの利用権限は即時失効します。
+    2. 日割り計算等による返金・決済のキャンセル対応は理由を問わず一切行われません。
     3. アカウント削除後に同じメールアドレスで再登録しても、過去のデータは引き継げません。
     """)
 
