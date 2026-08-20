@@ -36,7 +36,7 @@ def init_connection():
 supabase = init_connection()
 
 # Supabase管理者クライアントの初期化（退会・アカウント削除用）
-@st.cache_resource
+#@st.cache_resource
 def init_admin_connection():
     url = st.secrets["supabase"]["SUPABASE_URL"]
     service_role_key = st.secrets["supabase"].get("SUPABASE_SERVICE_ROLE_KEY", "")
