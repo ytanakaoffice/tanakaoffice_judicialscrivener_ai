@@ -200,8 +200,8 @@ def show_delete_account_dialog():
 
     sub_id, sub_data = get_stripe_subscription_info(curr_email)
 
-    # ガード判定: 自動更新が有効のまま（cancel_at_period_end == False）の場合は先に解約を促す
-    if sub_data and sub_data.status == "active" and not sub_data.cancel_at_period_end:
+    # ガード判定: アプリで有料プラン利用中かつ自動更新が有効な場合のみ先に解約を促す
+    if check_access(curr_email) and sub_data and sub_data.status == "active" and not sub_data.cancel_at_period_end:
         st.error("【退会エラー】有料プランの自動更新が有効なままです。")
         st.write("トラブル防止のため、先にサイドバーの「契約管理・解約」ボタンよりサブスクリプションの解約手続き（自動更新の停止）を行ってください。")
         st.info("※自動更新を停止した後に、再度この退会手続きを行っていただけます。")
