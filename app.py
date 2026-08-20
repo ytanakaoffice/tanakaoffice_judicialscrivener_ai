@@ -36,7 +36,6 @@ def init_connection():
 supabase = init_connection()
 
 # Supabase管理者クライアントの初期化（退会・アカウント削除用）
-#@st.cache_resource
 def init_admin_connection():
     url = st.secrets["supabase"]["SUPABASE_URL"]
     service_role_key = st.secrets["supabase"].get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -283,7 +282,7 @@ def show_reset_password_dialog():
             if reset_password_request(reset_email):
                 st.success("パスワード再設定用のメールを送信しました。メールボックスをご確認ください。")
 
-# 修正後の退会ダイアログ関数（Supabase DBの cancel_at_period_end を参照）
+# 退会ダイアログ関数
 @st.dialog("退会手続き（アカウント完全削除）", width="medium")
 def show_delete_account_dialog():
     if not st.session_state.get("user"):
@@ -302,7 +301,6 @@ def show_delete_account_dialog():
             status = sub_data.get("status")
             cancel_at_period_end = sub_data.get("cancel_at_period_end", False)
 
-            # ステータスが active / trialing かつ、自動更新停止（cancel_at_period_end）が False の場合のみ退会をブロック
             if status in ["active", "trialing"] and not cancel_at_period_end:
                 is_active_recurring = True
     except Exception as e:
@@ -327,7 +325,7 @@ def show_delete_account_dialog():
         st.info("※Stripe画面で解約手続き（自動更新の停止）を完了後、再度この画面からアカウント削除を行ってください。")
         return
 
-    # 3. 自動更新停止済み（残期間あり含む）または未契約の場合は注意事項を経て退会を許可
+    # 3. 自動更新停止済みまたは未契約の場合は注意事項を経て退会を許可
     st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
 
     st.markdown("""
@@ -830,28 +828,6 @@ def render_inline_chat(row):
         st.rerun()
 
 render_ai_teacher()
-
-# デバッグ表示
-with st.sidebar.expander("🔍 Stripe同期デバッグ"):
-    try:
-        sub_id, sub_data = get_stripe_subscription_info(user_email)
-        if sub_data:
-            st.write("【Stripeの生のデータ】")
-            st.write(f"ID: {sub_id}")
-            st.write(f"status: {getattr(sub_data, 'status', '不明')}")
-            st.write(f"cancel_at_period_end: {getattr(sub_data, 'cancel_at_period_end', '不明')}")
-            st.write(f"cancel_at: {getattr(sub_data, 'cancel_at', 'なし')}")
-            
-            if st.button("手動同期を実行"):
-                success, msg = sync_subscription_from_stripe(user_email)
-                if success:
-                    st.success(msg)
-                else:
-                    st.error(msg)
-        else:
-            st.warning("Stripe上にサブスクデータが見つかりませんでした。")
-    except Exception as dbg_err:
-        st.error(f"エラー: {dbg_err}")
 
 # -----------------------------------------------
 
