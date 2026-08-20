@@ -429,7 +429,7 @@ if not st.session_state.get("user"):
         }}
 
         /* --- 【修正】スマホ表示用の設定 --- */
-        @media (max-width: 768px) {{
+        @media (max-width: 600px) {{
             .stApp {{
                 background-image: linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), url("{bg_sp_b64}");
                 background-position: top center;
@@ -444,34 +444,34 @@ if not st.session_state.get("user"):
 
             /* 白い枠自体の余白を最小限に */
             [data-testid="stMainBlockContainer"] > div:first-child {{
-                padding: 3px !important; 
+                padding: 1px !important; 
             }}
 
             /* 文字サイズを全体的に小さく */
             h2, h3 {{
-                font-size: 0.5rem !important;
-                margin-bottom: 5px !important;
+                font-size: 0.4rem !important;
+                margin-bottom: 4px !important;
             }}
             
             /* 入力欄のサイズ調整 */
             div[data-testid="stTextInput"] {{
-                margin-bottom: -6px !important;
+                margin-bottom: -3px !important;
             }}
             
             input {{
-                padding: 4px !important;
-                font-size: 0.5rem !important;
+                padding: 2px !important;
+                font-size: 0.3rem !important;
             }}
             
             /* ボタンの余白も削る */
             button {{
-                padding: 3px 6px !important;
-                font-size: 0.4rem !important;
+                padding: 1px 2px !important;
+                font-size: 0.2rem !important;
             }}
             
             /* タブの文字も小さく */
             button[data-baseweb="tab"] p {{
-                font-size: 0.4rem !important;
+                font-size: 0.2rem !important;
             }}
         }}
 
