@@ -113,24 +113,21 @@ def ensure_subscription_record(email, user_id):
 
 # Stripeの最新情報を取得してSupabase DBに同期・更新する関数
 def sync_subscription_from_stripe(email):
-    if not stripe.api_key:
+    if not stripe.api_key or not email:
         return
     try:
-        sub_id, sub_data = get_stripe_subscription_info(email)
+        clean_email = email.strip().lower()
+        sub_id, sub_data = get_stripe_subscription_info(clean_email)
+        
         if sub_data:
-            # Stripeから状態を取得
-            status = getattr(sub_data, "status", None) or (sub_data.get("status") if isinstance(sub_data, dict) else "inactive")
+            status = getattr(sub_data, "status", "inactive")
+            cancel_at_period_end = bool(getattr(sub_data, "cancel_at_period_end", False))
+            current_period_end = getattr(sub_data, "current_period_end", None)
             
-            cancel_at_period_end = getattr(sub_data, "cancel_at_period_end", False)
-            if isinstance(sub_data, dict) and "cancel_at_period_end" in sub_data:
-                cancel_at_period_end = sub_data.get("cancel_at_period_end", False)
-
-            current_period_end = getattr(sub_data, "current_period_end", None) or (sub_data.get("current_period_end") if isinstance(sub_data, dict) else None)
             end_iso = None
             if current_period_end:
                 end_iso = datetime.fromtimestamp(current_period_end).isoformat()
 
-            # SupabaseのDBを最新の状態に更新
             supabase.table("subscriptions").update({
                 "status": status,
                 "cancel_at_period_end": cancel_at_period_end,
@@ -142,10 +139,8 @@ def sync_subscription_from_stripe(email):
 # 判定関数（アクセスの直前にStripeと同期を実行）
 def check_access(email):
     try:
-        # まずStripeの最新情報をSupabase DBに同期する
         sync_subscription_from_stripe(email)
 
-        # その後、Supabase DBを参照して判定する
         response = supabase.table("subscriptions").select("*").eq("email", email).execute()
         data = response.data
         if data:
@@ -168,13 +163,14 @@ def check_access(email):
     except Exception as e:
         print(f"check_access Error: {e}")
         return False
-    
-# Stripeのサブスクリプション状態を取得する関数（最新契約を取得するよう修正）
+
+# Stripeのサブスクリプション状態を取得する関数
 def get_stripe_subscription_info(email):
-    if not stripe.api_key:
+    if not stripe.api_key or not email:
         return None, None
     try:
-        customers = stripe.Customer.list(email=email, limit=10)
+        clean_email = email.strip().lower()
+        customers = stripe.Customer.list(email=clean_email, limit=10)
         if not customers.data:
             return None, None
         
@@ -184,7 +180,6 @@ def get_stripe_subscription_info(email):
             all_subs.extend(subs.data)
             
         if all_subs:
-            # 作成日時が最も新しいサブスクリプションを特定
             latest_sub = max(all_subs, key=lambda x: x.created)
             return latest_sub.id, latest_sub
             
@@ -578,34 +573,6 @@ user_email = st.session_state["user"]["email"]
 user_id = st.session_state["user"]["id"]
 
 ensure_subscription_record(user_email, user_id)
-
-# Stripeの最新情報を取得してSupabase DBに同期・更新する関数
-def sync_subscription_from_stripe(email):
-    if not stripe.api_key:
-        return
-    try:
-        sub_id, sub_data = get_stripe_subscription_info(email)
-        if sub_data:
-            # Stripeから状態を取得
-            status = getattr(sub_data, "status", None) or (sub_data.get("status") if isinstance(sub_data, dict) else "inactive")
-            
-            cancel_at_period_end = getattr(sub_data, "cancel_at_period_end", False)
-            if isinstance(sub_data, dict) and "cancel_at_period_end" in sub_data:
-                cancel_at_period_end = sub_data.get("cancel_at_period_end", False)
-
-            current_period_end = getattr(sub_data, "current_period_end", None) or (sub_data.get("current_period_end") if isinstance(sub_data, dict) else None)
-            end_iso = None
-            if current_period_end:
-                end_iso = datetime.fromtimestamp(current_period_end).isoformat()
-
-            # SupabaseのDBを最新の状態に更新
-            supabase.table("subscriptions").update({
-                "status": status,
-                "cancel_at_period_end": cancel_at_period_end,
-                "current_period_end": end_iso
-            }).eq("email", email).execute()
-    except Exception as e:
-        print(f"同期エラー: {e}")
 
 if not check_access(user_email):
   
