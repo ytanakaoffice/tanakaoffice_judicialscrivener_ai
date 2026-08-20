@@ -121,9 +121,14 @@ def sync_subscription_from_stripe(email):
         
         if sub_data:
             status = getattr(sub_data, "status", "inactive")
-            cancel_at_period_end = bool(getattr(sub_data, "cancel_at_period_end", False))
-            current_period_end = getattr(sub_data, "current_period_end", None)
             
+            # cancel_at_period_end が True、または cancel_at に日付がセットされていれば解約予約とみなす
+            raw_cancel_at_period_end = getattr(sub_data, "cancel_at_period_end", False)
+            raw_cancel_at = getattr(sub_data, "cancel_at", None)
+            
+            cancel_at_period_end = bool(raw_cancel_at_period_end or raw_cancel_at)
+
+            current_period_end = getattr(sub_data, "current_period_end", None)
             end_iso = None
             if current_period_end:
                 end_iso = datetime.fromtimestamp(current_period_end).isoformat()
@@ -819,7 +824,7 @@ def render_inline_chat(row):
 
 render_ai_teacher()
 
-# --- デバッグ表示（原因確認後に削除してください） ---
+# # --- デバッグ表示 ---
 with st.sidebar.expander("🔍 Stripe同期デバッグ"):
     try:
         sub_id, sub_data = get_stripe_subscription_info(user_email)
@@ -828,6 +833,7 @@ with st.sidebar.expander("🔍 Stripe同期デバッグ"):
             st.write(f"ID: {sub_id}")
             st.write(f"status: {getattr(sub_data, 'status', '不明')}")
             st.write(f"cancel_at_period_end: {getattr(sub_data, 'cancel_at_period_end', '不明')}")
+            st.write(f"cancel_at: {getattr(sub_data, 'cancel_at', 'なし')}")
             
             if st.button("手動同期を実行"):
                 sync_subscription_from_stripe(user_email)
