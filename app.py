@@ -14,6 +14,7 @@ import stripe
 import streamlit as st
 from streamlit_clickable_images import clickable_images
 from supabase import create_client
+from datetime import datetime, timezone
 
 # ページの設定
 st.set_page_config(
@@ -119,18 +120,19 @@ def sync_subscription_from_stripe(email):
         sub_id, sub_data = get_stripe_subscription_info(clean_email)
         
         if sub_data:
-            status = getattr(sub_data, "status", "inactive")
+            # 辞書取得と属性取得の両方に対応
+            status = getattr(sub_data, "status", None) or sub_data.get("status", "inactive")
             
-            raw_cancel_at_period_end = getattr(sub_data, "cancel_at_period_end", False)
-            raw_cancel_at = getattr(sub_data, "cancel_at", None)
-            
-            # cancel_at に値がある、または cancel_at_period_end が True なら解約予約(True)
+            raw_cancel_at_period_end = getattr(sub_data, "cancel_at_period_end", False) or sub_data.get("cancel_at_period_end", False)
+            raw_cancel_at = getattr(sub_data, "cancel_at", None) or sub_data.get("cancel_at", None)
             cancel_at_period_end = bool(raw_cancel_at_period_end or (raw_cancel_at is not None))
 
-            current_period_end = getattr(sub_data, "current_period_end", None)
+            # current_period_end を確実かつ安全に取得
+            current_period_end = getattr(sub_data, "current_period_end", None) or sub_data.get("current_period_end", None)
             end_iso = None
             if current_period_end:
-                end_iso = datetime.fromtimestamp(current_period_end).isoformat()
+                # UTCタイムゾーンを明示してISO8601形式に変換
+                end_iso = datetime.fromtimestamp(current_period_end, tz=timezone.utc).isoformat()
 
             # DB更新の実行
             res = supabase.table("subscriptions").update({
@@ -142,14 +144,15 @@ def sync_subscription_from_stripe(email):
             if not res.data:
                 return False, f"DB更新対象が見つかりません (検索email: {email})"
 
-            return True, f"同期成功: cancel_at_period_end を {cancel_at_period_end} に更新しました"
+            return True, f"同期成功: current_period_end={end_iso}"
         return False, "Stripe上にサブスクデータが見つかりませんでした"
     except Exception as e:
         return False, f"DB更新エラー: {e}"
-    
+
 # 判定関数（アクセスの直前にStripeと同期を実行）
 def check_access(email):
     try:
+        # Stripeから最新情報を同期
         sync_subscription_from_stripe(email)
 
         response = supabase.table("subscriptions").select("*").eq("email", email).execute()
@@ -159,13 +162,15 @@ def check_access(email):
             status = subscription.get("status")
             period_end = subscription.get("current_period_end")
             
-            if status == "active":
-                return True
-            
-            if status != "inactive" and period_end:
+            # 有効なステータス（active, trialing, または解約済みの canceled）かつ 期限データが存在すること
+            if status in ["active", "trialing", "canceled"] and period_end:
                 try:
+                    # Supabaseから取得した日時文字列をUTC付きでパース
                     end_date = datetime.fromisoformat(str(period_end).replace("Z", "+00:00"))
-                    if datetime.now(end_date.tzinfo) <= end_date:
+                    now = datetime.now(timezone.utc)
+                    
+                    # 現在時刻が有効期限内であればアクセス許可
+                    if now <= end_date:
                         return True
                 except Exception as parse_err:
                     print(f"日付パースエラー: {parse_err}")
