@@ -444,34 +444,34 @@ if not st.session_state.get("user"):
 
             /* 白い枠自体の余白を最小限に */
             [data-testid="stMainBlockContainer"] > div:first-child {{
-                padding: 10px !important; 
+                padding: 3px !important; 
             }}
 
             /* 文字サイズを全体的に小さく */
             h2, h3 {{
-                font-size: 1.1rem !important;
+                font-size: 0.5rem !important;
                 margin-bottom: 5px !important;
             }}
             
             /* 入力欄のサイズ調整 */
             div[data-testid="stTextInput"] {{
-                margin-bottom: -10px !important;
+                margin-bottom: -6px !important;
             }}
             
             input {{
-                padding: 6px !important;
-                font-size: 0.9rem !important;
+                padding: 4px !important;
+                font-size: 0.5rem !important;
             }}
             
             /* ボタンの余白も削る */
             button {{
-                padding: 4px 8px !important;
-                font-size: 0.9rem !important;
+                padding: 3px 6px !important;
+                font-size: 0.4rem !important;
             }}
             
             /* タブの文字も小さく */
             button[data-baseweb="tab"] p {{
-                font-size: 0.9rem !important;
+                font-size: 0.4rem !important;
             }}
         }}
 
