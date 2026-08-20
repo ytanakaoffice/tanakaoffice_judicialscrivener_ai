@@ -437,35 +437,35 @@ if not st.session_state.get("user"):
             
             /* 全体のコンテナを少し上に調整し、横幅をスリムに */
             [data-testid="stMainBlockContainer"] {{
-                padding-top: 35vh !important;
+                padding-top: 20vh !important;
                 max-width: 85% !important;
                 margin: 0 auto !important;
             }}
 
             /* 白い枠自体の余白を最小限に */
             [data-testid="stMainBlockContainer"] > div:first-child {{
-                padding: 1px !important; 
+                padding: 3px !important; 
             }}
 
             /* 文字サイズを全体的に小さく */
             h2, h3 {{
-                font-size: 0.4rem !important;
+                font-size: 1.0rem !important;
                 margin-bottom: 4px !important;
             }}
             
             /* 入力欄のサイズ調整 */
             div[data-testid="stTextInput"] {{
-                margin-bottom: -3px !important;
+                margin-bottom: -2px !important;
             }}
             
             input {{
                 padding: 2px !important;
-                font-size: 0.3rem !important;
+                font-size: 0.2rem !important;
             }}
             
             /* ボタンの余白も削る */
             button {{
-                padding: 1px 2px !important;
+                padding: 0.3px 0.3px !important;
                 font-size: 0.2rem !important;
             }}
             
@@ -481,7 +481,7 @@ if not st.session_state.get("user"):
         [data-testid="stMainBlockContainer"] p,
         [data-testid="stMainBlockContainer"] label {{
             color: #0F172A !important;
-            font-weight: 700 !important;
+            font-weight: 400 !important;
         }}
     </style>
     """, unsafe_allow_html=True)
