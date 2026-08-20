@@ -288,11 +288,17 @@ def show_tokusho_dialog():
     with col_dialog_delete:
         if st.session_state.get("user"):
             if st.button("退会手続きへ進む", key="btn_goto_delete_from_tokusho", use_container_width=True):
-                show_delete_account_dialog()
+                st.session_state["show_delete_modal"] = True
+                st.rerun()
 
 # URLパラメータ判定
 if st.query_params.get("page") == "tokusho":
     show_tokusho_dialog()
+
+# 特商法ダイアログから遷移指示があった場合に退会ダイアログを開く
+if st.session_state.get("show_delete_modal"):
+    st.session_state["show_delete_modal"] = False
+    show_delete_account_dialog()
 
 # A. 未ログイン時の表示
 if not st.session_state.get("user"):
