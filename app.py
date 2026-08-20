@@ -111,7 +111,6 @@ def ensure_subscription_record(email, user_id):
     except Exception as e:
         print(f"ensure_subscription_record Error: {e}")
 
-# Stripeの最新情報を取得してSupabase DBに同期・更新する関数
 def sync_subscription_from_stripe(email):
     if not stripe.api_key or not email:
         return False, "APIキーまたはメールアドレスが設定されていません"
@@ -119,33 +118,40 @@ def sync_subscription_from_stripe(email):
         clean_email = email.strip().lower()
         sub_id, sub_data = get_stripe_subscription_info(clean_email)
         
-        if sub_data:
-            # 辞書取得と属性取得の両方に対応
-            status = getattr(sub_data, "status", None) or sub_data.get("status", "inactive")
-            
-            raw_cancel_at_period_end = getattr(sub_data, "cancel_at_period_end", False) or sub_data.get("cancel_at_period_end", False)
-            raw_cancel_at = getattr(sub_data, "cancel_at", None) or sub_data.get("cancel_at", None)
-            cancel_at_period_end = bool(raw_cancel_at_period_end or (raw_cancel_at is not None))
+        if not sub_data:
+            return False, "Stripe上にサブスクデータが見つかりませんでした"
 
-            # current_period_end を確実かつ安全に取得
-            current_period_end = getattr(sub_data, "current_period_end", None) or sub_data.get("current_period_end", None)
-            end_iso = None
-            if current_period_end:
-                # UTCタイムゾーンを明示してISO8601形式に変換
-                end_iso = datetime.fromtimestamp(current_period_end, tz=timezone.utc).isoformat()
+        # 辞書形式・オブジェクト形式のどちらでも安全に値を取り出す関数
+        def get_field(obj, key, default=None):
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
 
-            # DB更新の実行
-            res = supabase.table("subscriptions").update({
-                "status": status,
-                "cancel_at_period_end": cancel_at_period_end,
-                "current_period_end": end_iso
-            }).eq("email", email).execute()
+        status = get_field(sub_data, "status", "inactive")
+        raw_cancel_at_period_end = get_field(sub_data, "cancel_at_period_end", False)
+        raw_cancel_at = get_field(sub_data, "cancel_at", None)
+        
+        # 解約予約フラグまたは解約予定日時の有無で判定
+        cancel_at_period_end = bool(raw_cancel_at_period_end or (raw_cancel_at is not None))
 
-            if not res.data:
-                return False, f"DB更新対象が見つかりません (検索email: {email})"
+        # UTCタイムゾーンを明示してISO8601文字列へ変換
+        current_period_end = get_field(sub_data, "current_period_end", None)
+        end_iso = None
+        if current_period_end:
+            end_iso = datetime.fromtimestamp(current_period_end, tz=timezone.utc).isoformat()
 
-            return True, f"同期成功: current_period_end={end_iso}"
-        return False, "Stripe上にサブスクデータが見つかりませんでした"
+        # DB更新（正規化した clean_email を使用）
+        res = supabase.table("subscriptions").update({
+            "status": status,
+            "cancel_at_period_end": cancel_at_period_end,
+            "current_period_end": end_iso
+        }).eq("email", clean_email).execute()
+
+        if not res.data:
+            return False, f"DB更新対象が見つかりません (検索email: {clean_email})"
+
+        return True, f"同期成功: status={status}, cancel_at_period_end={cancel_at_period_end}, current_period_end={end_iso}"
+
     except Exception as e:
         return False, f"DB更新エラー: {e}"
 
@@ -180,7 +186,7 @@ def check_access(email):
         print(f"check_access Error: {e}")
         return False
 
-# Stripeのサブスクリプション状態を取得する関数
+# Stripeのサブスクリプション状態を取得する関数（稼働中優先）
 def get_stripe_subscription_info(email):
     if not stripe.api_key or not email:
         return None, None
@@ -196,8 +202,10 @@ def get_stripe_subscription_info(email):
             all_subs.extend(subs.data)
             
         if all_subs:
-            latest_sub = max(all_subs, key=lambda x: x.created)
-            return latest_sub.id, latest_sub
+            # active または trialing のサブスクを優先。無ければ全体から最新を取得
+            active_subs = [s for s in all_subs if getattr(s, "status", None) in ["active", "trialing"]]
+            target_sub = max(active_subs, key=lambda x: x.created) if active_subs else max(all_subs, key=lambda x: x.created)
+            return target_sub.id, target_sub
             
         return None, None
     except Exception as e:
