@@ -78,6 +78,26 @@ def signup(email, password):
         st.error(f"登録エラー: {e}")
         return None
 
+# パスワード更新処理（ログイン中用）
+def update_password(new_password):
+    try:
+        res = supabase.auth.update_user({"password": new_password})
+        if res.user:
+            return True
+        return False
+    except Exception as e:
+        st.error(f"パスワード変更エラー: {e}")
+        return False
+
+# パスワード再設定メール送信処理（ログイン前用）
+def reset_password_request(email):
+    try:
+        res = supabase.auth.reset_password_for_email(email)
+        return True
+    except Exception as e:
+        st.error(f"送信エラー: {e}")
+        return False
+
 # 契約初期レコード作成
 def ensure_subscription_record(email, user_id):
     try:
@@ -192,6 +212,37 @@ def show_terms_dialog():
     if st.button("閉じる", key="btn_close_terms"):
         st.rerun()
 
+# パスワード変更ダイアログ（ログイン中用）
+@st.dialog("パスワードの変更", width="medium")
+def show_change_password_dialog():
+    st.write("新しいパスワードを入力してください。")
+    new_pw = st.text_input("新しいパスワード", type="password", key="dialog_new_pw_input")
+    confirm_pw = st.text_input("新しいパスワード（確認用）", type="password", key="dialog_confirm_pw_input")
+    
+    if st.button("パスワードを変更する", type="primary", use_container_width=True, key="btn_execute_change_pw"):
+        if not new_pw or not confirm_pw:
+            st.warning("すべての項目を入力してください。")
+        elif new_pw != confirm_pw:
+            st.error("パスワードが一致しません。")
+        elif len(new_pw) < 6:
+            st.error("パスワードは6文字以上で設定してください。")
+        else:
+            if update_password(new_pw):
+                st.success("パスワードを変更しました。")
+                st.rerun()
+
+# パスワード再設定ダイアログ（ログイン前用）
+@st.dialog("パスワードの再設定", width="medium")
+def show_reset_password_dialog():
+    st.write("ご登録済みのメールアドレスを入力してください。パスワード再設定用の案内を送信します。")
+    reset_email = st.text_input("メールアドレス", key="dialog_reset_email_input")
+    if st.button("再設定メールを送信", type="primary", use_container_width=True, key="btn_execute_reset_pw"):
+        if not reset_email:
+            st.warning("メールアドレスを入力してください。")
+        else:
+            if reset_password_request(reset_email):
+                st.success("パスワード再設定用のメールを送信しました。メールボックスをご確認ください。")
+
 # 自動退会ダイアログ
 @st.dialog("退会手続き（アカウント完全削除）", width="medium")
 def show_delete_account_dialog():
@@ -204,16 +255,6 @@ def show_delete_account_dialog():
 
     sub_id, sub_data = get_stripe_subscription_info(curr_email)
 
-    # ガード判定: アプリで有料プラン利用中かつ自動更新が有効な場合のみ先に解約を促す
-    #if check_access(curr_email) and sub_data and sub_data.status == "active" and not sub_data.cancel_at_period_end:
-    #    st.error("【退会エラー】有料プランの自動更新が有効なままです。")
-    #   st.write("トラブル防止のため、先にサイドバーの「契約管理・解約」ボタンよりサブスクリプションの解約手続き（自動更新の停止）を行ってください。")
-    #    st.info("※自動更新を停止した後に、再度この退会手続きを行っていただけます。")
-    #    if st.button("閉じる", key="btn_close_delete_blocked"):
-    #        st.rerun()
-    #    return
-
-    # 解約予約中、または未契約・解約済みのアカウントの場合の退会フォーム
     st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
 
     st.markdown("""
@@ -426,6 +467,10 @@ if not st.session_state.get("user"):
                     st.rerun()
             else:
                 st.warning("メールアドレスとパスワードを入力してください。")
+
+        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+        if st.button("パスワードをお忘れの方はこちら", key="btn_forgot_password", use_container_width=True):
+            show_reset_password_dialog()
                 
     with tab_signup:
         st.markdown("<h2 style='margin-top:0; margin-bottom:12px; color:#0F172A; font-size:1.4rem;'>新規会員登録</h2>", unsafe_allow_html=True)
@@ -733,14 +778,17 @@ with col_stripe:
         unsafe_allow_html=True
     )
 
-col_tokusho_side, col_delete_side = st.sidebar.columns(2)
-with col_tokusho_side:
-    if st.button("特商法表記", key="btn_sidebar_tokusho", use_container_width=True):
-        show_tokusho_dialog()
+col_pw_side, col_delete_side = st.sidebar.columns(2)
+with col_pw_side:
+    if st.button("パスワード変更", key="btn_sidebar_change_pw", use_container_width=True):
+        show_change_password_dialog()
 
 with col_delete_side:
     if st.button("退会手続き", key="btn_sidebar_delete_account", use_container_width=True):
         show_delete_account_dialog()
+
+if st.button("特商法表記", key="btn_sidebar_tokusho", use_container_width=True):
+    show_tokusho_dialog()
 
 st.sidebar.markdown("---")
 
