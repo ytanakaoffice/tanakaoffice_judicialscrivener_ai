@@ -188,15 +188,17 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
 
         function autoClickNextBatch() {{
             infoEl.innerText = "次の10問を自動読み込み中...";
-            try {{
-                const buttons = Array.from(window.parent.document.querySelectorAll('button'));
-                const nextBtn = buttons.find(b => b.innerText && b.innerText.includes('次の10問へ'));
-                if (nextBtn) {{
-                    nextBtn.click();
+            setTimeout(function() {{
+                try {{
+                    const buttons = Array.from(window.parent.document.querySelectorAll('button'));
+                    const nextBtn = buttons.find(b => b.innerText && b.innerText.includes('次の10問へ'));
+                    if (nextBtn) {{
+                        nextBtn.click();
+                    }}
+                }} catch (e) {{
+                    console.error("自動遷移エラー:", e);
                 }}
-            }} catch (e) {{
-                console.error("自動クリック失敗:", e);
-            }}
+            }}, 500);
         }}
 
         player.addEventListener('ended', function() {{
@@ -1345,15 +1347,19 @@ elif menu == "過去問聞き流し":
             st.session_state.listen_batch_page = 0
 
         batch_options = [f"第 {i*10 + 1} 〜 {min((i+1)*10, total_questions)} 問目 (グループ {i+1}/{total_batches})" for i in range(total_batches)]
-        
-        selected_batch_str = st.selectbox(
+
+        def sync_batch_selection():
+            st.session_state.listen_batch_page = batch_options.index(st.session_state.selected_batch_str)
+
+        st.selectbox(
             "再生する問題範囲を選択:", 
             batch_options, 
             index=st.session_state.listen_batch_page, 
-            key="select_batch_range"
+            key="selected_batch_str",
+            on_change=sync_batch_selection
         )
-        current_batch_page = batch_options.index(selected_batch_str)
-        st.session_state.listen_batch_page = current_batch_page
+
+        current_batch_page = st.session_state.listen_batch_page
 
         start_q = current_batch_page * batch_size
         end_q = min(start_q + batch_size, total_questions)
