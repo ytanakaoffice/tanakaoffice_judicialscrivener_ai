@@ -95,16 +95,17 @@ def get_audio_file_path(prefix, q_num, limb):
     return None
 
 def get_audio_url(file_path):
-    """ファイルパスを Streamlit の静的配信 URL に変換（日本語エンコード対応）"""
-    if not file_path:
+    """音声ファイルをBase64文字列に変換してブラウザで直接再生可能にする"""
+    if not file_path or not os.path.exists(file_path):
         return ""
-    norm_path = file_path.replace("\\", "/")
-    if "static/" in norm_path:
-        rel_path = norm_path.split("static/")[1]
-        # 日本語ファイル名をURLエンコード処理
-        encoded_rel_path = urllib.parse.quote(rel_path)
-        return f"/app/static/{encoded_rel_path}"
-    return ""
+    
+    try:
+        with open(file_path, "rb") as f:
+            data = f.read()
+        b64_str = base64.b64encode(data).decode("utf-8")
+        return f"data:audio/mp3;base64,{b64_str}"
+    except Exception as e:
+        return ""
 
 def render_continuous_player(playlist):
     if not playlist:
@@ -1354,7 +1355,7 @@ elif menu == "過去問聞き流し":
             render_continuous_player(playlist)
         else:
             st.error("選択された区分の対応音声ファイルが見つかりませんでした。")
-            
+
 # ルート4：AIに質問（チャット）
 elif menu == "AIに質問（チャット）":
     st.title("AIたなかっち1号先生へ質問")
