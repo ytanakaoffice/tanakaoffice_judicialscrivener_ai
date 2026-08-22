@@ -66,7 +66,7 @@ def get_audio_data_uri(audio_bytes):
 
 def get_audio_file_path(prefix, q_num, limb):
     """
-    static/audio_output から Q_問題番号_肢 または A_問題番号_肢 の音声ファイルを探す
+    static/audio_output 内のサブフォルダも含めて音声ファイルを探す
     """
     if not q_num or not limb:
         return None
@@ -83,10 +83,12 @@ def get_audio_file_path(prefix, q_num, limb):
         return None
         
     try:
-        for fname in os.listdir(dir_path):
-            name_without_ext, _ = os.path.splitext(fname)
-            if name_without_ext.strip() == target_name:
-                return os.path.join(dir_path, fname)
+        # os.walk を使ってサブフォルダ（令和元年度など）の中身も全探索する
+        for root, _, files in os.walk(dir_path):
+            for fname in files:
+                name_without_ext, _ = os.path.splitext(fname)
+                if name_without_ext.strip() == target_name:
+                    return os.path.join(root, fname)
     except Exception:
         pass
         
