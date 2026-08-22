@@ -95,14 +95,16 @@ def get_audio_file_path(prefix, q_num, limb):
     return None
 
 def get_audio_url(file_path):
-    """音声ファイルのURLパスを返す（超軽量化）"""
+    """音声ファイルを Base64 Data URI に変換して返す"""
     if not file_path or not os.path.exists(file_path):
         return ""
-    
-    # staticフォルダからの相対パスを取得してURLを作成
-    # 例: static/audio/Q1.mp3 -> app/static/audio/Q1.mp3
-    rel_path = os.path.relpath(file_path, "static")
-    return f"app/static/{rel_path}"
+    try:
+        with open(file_path, "rb") as f:
+            audio_bytes = f.read()
+        b64 = base64.b64encode(audio_bytes).decode('utf-8')
+        return f"data:audio/mp3;base64,{b64}"
+    except Exception:
+        return ""
 
 def render_continuous_player(playlist):
     if not playlist:
@@ -1331,7 +1333,7 @@ elif menu == "過去問聞き流し":
             render_continuous_player(playlist)
         else:
             st.error("選択された区分の対応音声ファイルが見つかりませんでした。")
-            
+
 # ルート4：AIに質問（チャット）
 elif menu == "AIに質問（チャット）":
     st.title("AIたなかっち1号先生へ質問")
