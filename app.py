@@ -95,17 +95,14 @@ def get_audio_file_path(prefix, q_num, limb):
     return None
 
 def get_audio_url(file_path):
-    """音声ファイルをBase64文字列に変換してブラウザで直接再生可能にする"""
+    """音声ファイルのURLパスを返す（超軽量化）"""
     if not file_path or not os.path.exists(file_path):
         return ""
     
-    try:
-        with open(file_path, "rb") as f:
-            data = f.read()
-        b64_str = base64.b64encode(data).decode("utf-8")
-        return f"data:audio/mp3;base64,{b64_str}"
-    except Exception as e:
-        return ""
+    # staticフォルダからの相対パスを取得してURLを作成
+    # 例: static/audio/Q1.mp3 -> app/static/audio/Q1.mp3
+    rel_path = os.path.relpath(file_path, "static")
+    return f"app/static/{rel_path}"
 
 def render_continuous_player(playlist):
     if not playlist:
@@ -1300,32 +1297,11 @@ elif menu == "過去問聞き流し":
             target_rows = df[df["分野"] == sel_cat].reset_index(drop=True)
 
     if not target_rows.empty:
-        total_q_count = len(target_rows)
-        chunk_size = 10  # 1回の再生単位（10問＝最大20トラック）
-        
-        # 10問ごとの範囲選択肢を生成
-        range_options = []
-        for i in range(0, total_q_count, chunk_size):
-            end_i = min(i + chunk_size, total_q_count)
-            range_options.append(f"第 {i+1} 問 〜 第 {end_i} 問 (全 {end_i - i} 問)")
-            
-        selected_range_idx = st.selectbox(
-            "再生する範囲を選択してください（動作軽量化のため10問単位）",
-            range(len(range_options)),
-            format_func=lambda x: range_options[x],
-            key="listen_range_select"
-        )
-        
-        # 選択した範囲のデータのみを抽出
-        start_idx = selected_range_idx * chunk_size
-        end_idx = min(start_idx + chunk_size, total_q_count)
-        selected_target_rows = target_rows.iloc[start_idx:end_idx].reset_index(drop=True)
-
         playlist = []
         found_audio_count = 0
         
-        with st.spinner("選択範囲の音声ファイルをセットアップ中..."):
-            for _, row in selected_target_rows.iterrows():
+        with st.spinner("音声プレイリストを生成中..."):
+            for _, row in target_rows.iterrows():
                 q_num_val = row.get("問題番号", "")
                 limb_val = row.get("肢", "")
                 q_text = str(row.get("文章", ""))
@@ -1351,11 +1327,11 @@ elif menu == "過去問聞き流し":
                     found_audio_count += 1
 
         if playlist:
-            st.success(f"選択範囲（第 {start_idx + 1} 〜 {end_idx} 問）の音声データをセットしました。")
+            st.success(f"全 {len(target_rows)} 問中 {found_audio_count} 件の音声データをセットしました。")
             render_continuous_player(playlist)
         else:
             st.error("選択された区分の対応音声ファイルが見つかりませんでした。")
-
+            
 # ルート4：AIに質問（チャット）
 elif menu == "AIに質問（チャット）":
     st.title("AIたなかっち1号先生へ質問")
