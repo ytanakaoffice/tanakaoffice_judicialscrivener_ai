@@ -115,19 +115,18 @@ def get_audio_url(file_path):
     
     return f"/app/static/{encoded_path}"
 
-def render_continuous_player(playlist, current_batch, total_batches, auto_start=False):
+def render_continuous_player(playlist, batch_size=10):
     if not playlist:
         st.info("再生できる音声ファイルが見つかりませんでした。")
         return
 
     json_data = json.dumps(playlist, ensure_ascii=False)
-    auto_start_js = "true" if auto_start else "false"
     
     html_code = f"""
     <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0; font-family: sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span id="batch-info" style="font-size: 0.85rem; font-weight: bold; color: #4f46e5; background: #eeeefd; padding: 4px 10px; border-radius: 6px;">
-                グループ {current_batch + 1} / {total_batches} （10問単位）
+                準備中...
             </span>
             <span id="playlist-status" style="font-size: 0.85rem; color: #64748b;"></span>
         </div>
@@ -139,22 +138,32 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
         
         <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
             <button onclick="prevTrack()" style="padding: 8px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f1f5f9; cursor: pointer; font-weight: bold;">⏮ 前の音声</button>
-            <button onclick="goToNextBatch()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; cursor: pointer; font-size: 0.85rem;">次の10問へ ⏩</button>
+            <button onclick="nextBatch()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; cursor: pointer; font-size: 0.85rem;">次の10問へ ⏩</button>
             <button onclick="nextTrack()" style="padding: 8px 14px; border-radius: 6px; border: none; background: #4f46e5; color: white; cursor: pointer; font-weight: bold;">次の音声 ⏭</button>
         </div>
     </div>
 
     <script>
         const playlist = {json_data};
-        const currentBatch = {current_batch};
-        const totalBatches = {total_batches};
-        const shouldAutoStart = {auto_start_js};
-        
+        const batchQuestions = {batch_size};
+        const itemsPerBatch = batchQuestions * 2;
         let currentIndex = 0;
+
         const player = document.getElementById('audio-player');
         const infoEl = document.getElementById('track-info');
         const detailEl = document.getElementById('track-detail');
         const statusEl = document.getElementById('playlist-status');
+        const batchEl = document.getElementById('batch-info');
+
+        function updateDisplay() {{
+            const totalItems = playlist.length;
+            const totalBatches = Math.ceil(totalItems / itemsPerBatch);
+            const currentBatch = Math.floor(currentIndex / itemsPerBatch) + 1;
+            const currentQ = Math.floor(currentIndex / 2) + 1;
+
+            batchEl.innerText = `グループ ${{currentBatch}} / ${{totalBatches}} （${{currentQ}}問目を再生中）`;
+            statusEl.innerText = `${{currentIndex + 1}} / ${{totalItems}}`;
+        }}
 
         function loadTrack(index) {{
             if (index < 0 || index >= playlist.length) return;
@@ -164,13 +173,17 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
             detailEl.innerText = track.text;
             
             if (track.url) {{
-                player.src = track.url;
+                let srcUrl = track.url;
+                if (srcUrl.startsWith('/')) {{
+                    srcUrl = window.location.origin + srcUrl;
+                }}
+                player.src = srcUrl;
                 player.load();
             }} else {{
                 infoEl.innerText = track.title + " (音声データなし)";
             }}
             
-            statusEl.innerText = (currentIndex + 1) + ' / ' + playlist.length;
+            updateDisplay();
         }}
 
         function prevTrack() {{
@@ -184,24 +197,15 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
             if (currentIndex < playlist.length - 1) {{
                 loadTrack(currentIndex + 1);
                 player.play().catch(e => console.log(e));
-            }} else {{
-                goToNextBatch();
             }}
         }}
 
-        function goToNextBatch() {{
-            if (currentBatch + 1 < totalBatches) {{
-                infoEl.innerText = "次の10問を読み込み中...";
-                try {{
-                    const parentUrl = new URL(window.parent.location.href);
-                    parentUrl.searchParams.set('batch_page', currentBatch + 1);
-                    parentUrl.searchParams.set('autoplay', '1');
-                    window.parent.location.href = parentUrl.href;
-                }} catch (e) {{
-                    window.location.href = '?batch_page=' + (currentBatch + 1) + '&autoplay=1';
-                }}
-            }} else {{
-                infoEl.innerText = "すべての再生が完了しました";
+        function nextBatch() {{
+            const currentBatchIdx = Math.floor(currentIndex / itemsPerBatch);
+            const nextBatchStart = (currentBatchIdx + 1) * itemsPerBatch;
+            if (nextBatchStart < playlist.length) {{
+                loadTrack(nextBatchStart);
+                player.play().catch(e => console.log(e));
             }}
         }}
 
@@ -209,15 +213,12 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
             if (currentIndex < playlist.length - 1) {{
                 nextTrack();
             }} else {{
-                goToNextBatch();
+                infoEl.innerText = "すべての再生が完了しました";
             }}
         }});
 
         if (playlist.length > 0) {{
             loadTrack(0);
-            if (shouldAutoStart) {{
-                player.play().catch(e => console.log("自動再生ブロック:", e));
-            }}
         }}
     </script>
     """
@@ -1312,7 +1313,7 @@ elif menu == "科目別":
 elif menu == "過去問聞き流し":
     render_header_image()
     st.subheader("🎧 過去問連続聞き流しモード")
-    st.write("10問ずつ読み込んで自動再生します。10問が終わると自動で次の10問へ移行します。")
+    st.write("画面遷移なしで10問ずつ自動的に次の10問へ移行し、全問最後まで自動再生されます。")
 
     listen_type = st.radio("絞り込み方法を選択", ["年度別", "科目別"], horizontal=True, key="listen_type_radio")
 
@@ -1341,41 +1342,11 @@ elif menu == "過去問聞き流し":
             target_rows = df[df["分野"] == sel_cat].reset_index(drop=True)
 
     if not target_rows.empty:
-        # パラメータからページ位置を取得
-        query_batch = st.query_params.get("batch_page", "0")
-        try:
-            current_batch_page = int(query_batch)
-        except ValueError:
-            current_batch_page = 0
-
-        auto_play_flag = st.query_params.get("autoplay", "0") == "1"
-
-        batch_size = 10
-        total_questions = len(target_rows)
-        total_batches = (total_questions + batch_size - 1) // batch_size
-
-        if current_batch_page >= total_batches:
-            current_batch_page = 0
-
-        # 手動切り替え用のセレクトボックス
-        batch_options = [f"第 {i*10 + 1} 〜 {min((i+1)*10, total_questions)} 問目 (グループ {i+1}/{total_batches})" for i in range(total_batches)]
-        selected_batch_str = st.selectbox("再生する範囲を選択:", batch_options, index=current_batch_page, key="select_batch_range")
-        selected_batch_idx = batch_options.index(selected_batch_str)
-
-        if selected_batch_idx != current_batch_page:
-            st.query_params["batch_page"] = str(selected_batch_idx)
-            st.query_params["autoplay"] = "0"
-            st.rerun()
-
-        start_q = current_batch_page * batch_size
-        end_q = min(start_q + batch_size, total_questions)
-        current_batch_rows = target_rows.iloc[start_q:end_q]
-
         playlist = []
         found_audio_count = 0
-
-        with st.spinner(f"第 {start_q + 1} 〜 {end_q} 問の音声を準備中..."):
-            for _, row in current_batch_rows.iterrows():
+        
+        with st.spinner("音声プレイリストを生成中..."):
+            for _, row in target_rows.iterrows():
                 q_num_val = row.get("問題番号", "")
                 limb_val = row.get("肢", "")
                 q_text = str(row.get("文章", ""))
@@ -1384,37 +1355,27 @@ elif menu == "過去問聞き流し":
                 q_file = get_audio_file_path("Q", q_num_val, limb_val)
                 a_file = get_audio_file_path("A", q_num_val, limb_val)
 
-                if q_file and os.path.exists(q_file):
-                    try:
-                        with open(q_file, "rb") as f:
-                            b64_str = base64.b64encode(f.read()).decode("utf-8")
-                        playlist.append({
-                            "title": f"【問題】{q_num_val} 肢{limb_val}",
-                            "text": q_text,
-                            "url": f"data:audio/mp3;base64,{b64_str}"
-                        })
-                        found_audio_count += 1
-                    except Exception:
-                        pass
+                if q_file:
+                    playlist.append({
+                        "title": f"【問題】{q_num_val} 肢{limb_val}",
+                        "text": q_text,
+                        "url": get_audio_url(q_file)
+                    })
+                    found_audio_count += 1
 
-                if a_file and os.path.exists(a_file):
-                    try:
-                        with open(a_file, "rb") as f:
-                            b64_str = base64.b64encode(f.read()).decode("utf-8")
-                        playlist.append({
-                            "title": f"【解説】{q_num_val} 肢{limb_val}",
-                            "text": a_text,
-                            "url": f"data:audio/mp3;base64,{b64_str}"
-                        })
-                        found_audio_count += 1
-                    except Exception:
-                        pass
+                if a_file:
+                    playlist.append({
+                        "title": f"【解説】{q_num_val} 肢{limb_val}",
+                        "text": a_text,
+                        "url": get_audio_url(a_file)
+                    })
+                    found_audio_count += 1
 
         if playlist:
-            st.success(f"全 {total_questions} 問中、第 {start_q + 1} 〜 {end_q} 問（{found_audio_count} 件）をセットしました。")
-            render_continuous_player(playlist, current_batch_page, total_batches, auto_start=auto_play_flag)
+            st.success(f"全 {len(target_rows)} 問中 {found_audio_count} 件の音声データをセットしました。（10問ごとに自動グループ切り替え）")
+            render_continuous_player(playlist, batch_size=10)
         else:
-            st.error("選択された区間の対応音声ファイルが見つかりませんでした。")
+            st.error("選択された区分の対応音声ファイルが見つかりませんでした。")
             
 # ルート4：AIに質問（チャット）
 elif menu == "AIに質問（チャット）":
