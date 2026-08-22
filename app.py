@@ -743,7 +743,7 @@ def call_dify(query, conversation_id=""):
             res_data = response.json()
             return res_data.get("answer", "回答を取得できませんでした。"), res_data.get("conversation_id", "")
         else:
-            return f"エラーが発生しました (ステータスコード: {response.status_code})", conversation_id
+            return f"エラー詳細: {response.status_code} - {response.text}", conversation_id
     except Exception as e:
         return f"通信エラー: {e}", conversation_id
 
