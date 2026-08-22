@@ -95,22 +95,20 @@ def get_audio_file_path(prefix, q_num, limb):
     return None
 
 def get_audio_url(file_path):
-    """音声ファイルのURLパスを返す（日本語URLエンコード＆パス補正対応）"""
+    """音声ファイルのURLパスを返す（Windowsパス変換＆日本語URLエンコード対応）"""
     if not file_path or not os.path.exists(file_path):
         return ""
     
-    # Windowsの「\」を「/」に変換
-    normalized_path = file_path.replace("\\", "/")
+    # static フォルダからの相対パスを取得
+    rel_path = os.path.relpath(file_path, "static")
     
-    # "static/" より後ろのパス（audio_output/令和元年度/ファイル名.mp3）を抽出
-    if "/static/" in normalized_path:
-        sub_path = normalized_path.split("/static/", 1)[1]
-    else:
-        sub_path = os.path.basename(normalized_path)
+    # Windowsの「\」を URL用の「/」に変換
+    rel_path = rel_path.replace("\\", "/")
     
-    # 日本語（令和元年度など）をブラウザが認識できるURL形式に変換
-    encoded_path = urllib.parse.quote(sub_path, safe='/')
+    # 日本語（令和元年度など）をブラウザが解釈できる形式にURLエンコード
+    encoded_path = urllib.parse.quote(rel_path, safe='/')
     
+    # 先頭にスラッシュを付けて配信URLを作成
     return f"/app/static/{encoded_path}"
 
 def render_continuous_player(playlist):
