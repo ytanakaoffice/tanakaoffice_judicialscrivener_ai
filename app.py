@@ -124,16 +124,16 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
     auto_start_js = "true" if auto_start else "false"
     
     html_code = f"""
-    <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0; font-family: sans-serif;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+    <div style="background-color: #ffffff; padding: 16px; border-radius: 12px; border: 1px solid #e0e0e0; font-family: sans-serif; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <span id="batch-info" style="font-size: 0.85rem; font-weight: bold; color: #4f46e5; background: #eeeefd; padding: 4px 10px; border-radius: 6px;">
                 グループ {current_batch + 1} / {total_batches} （10問単位）
             </span>
             <span id="playlist-status" style="font-size: 0.85rem; color: #64748b;"></span>
         </div>
         
-        <div id="track-info" style="font-size: 1.1rem; font-weight: bold; color: #1e293b; margin-bottom: 8px;">再生準備中...</div>
-        <div id="track-detail" style="font-size: 0.95rem; color: #475569; margin-bottom: 12px; max-height: 90px; overflow-y: auto; background: #f8fafc; padding: 8px; border-radius: 6px;"></div>
+        <div id="track-info" style="font-size: 1.05rem; font-weight: bold; color: #1e293b; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">再生準備中...</div>
+        <div id="track-detail" style="font-size: 0.9rem; color: #475569; margin-bottom: 12px; height: 90px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 6px; box-sizing: border-box; line-height: 1.4;"></div>
         
         <audio id="audio-player" controls style="width: 100%; margin-bottom: 12px;"></audio>
         
@@ -217,7 +217,7 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
         }}
     </script>
     """
-    components.html(html_code, height=300)
+    components.html(html_code, height=360)
 
 # ==========================================
 # 1. 認証機能（Supabase Auth）
@@ -1428,7 +1428,7 @@ elif menu == "過去問聞き流し":
         else:
             st.error("選択された区間の対応音声ファイルが見つかりませんでした。")
 
-            
+
 # ルート4：AIに質問（チャット）
 elif menu == "AIに質問（チャット）":
     st.title("AIたなかっち1号先生へ質問")
