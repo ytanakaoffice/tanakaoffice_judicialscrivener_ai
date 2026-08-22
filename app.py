@@ -95,16 +95,17 @@ def get_audio_file_path(prefix, q_num, limb):
     return None
 
 def get_audio_url(file_path):
-    """音声ファイルを Base64 Data URI に変換して返す"""
+    """音声ファイルのURLパスを返す（軽量化・Windowsパス対応）"""
     if not file_path or not os.path.exists(file_path):
         return ""
-    try:
-        with open(file_path, "rb") as f:
-            audio_bytes = f.read()
-        b64 = base64.b64encode(audio_bytes).decode('utf-8')
-        return f"data:audio/mp3;base64,{b64}"
-    except Exception:
-        return ""
+    
+    # static フォルダからの相対パスを取得
+    rel_path = os.path.relpath(file_path, "static")
+    
+    # Windows環境の '\' を URL用の '/' に変換
+    rel_path = rel_path.replace("\\", "/")
+    
+    return f"app/static/{rel_path}"
 
 def render_continuous_player(playlist):
     if not playlist:
