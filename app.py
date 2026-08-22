@@ -115,7 +115,7 @@ def get_audio_url(file_path):
     
     return f"/app/static/{encoded_path}"
 
-def render_continuous_player(playlist):
+def render_continuous_player(playlist, batch_size=10):
     if not playlist:
         st.info("再生できる音声ファイルが見つかりませんでした。")
         return
@@ -124,25 +124,39 @@ def render_continuous_player(playlist):
     
     html_code = f"""
     <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0; font-family: sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span id="batch-info" style="font-size: 0.85rem; font-weight: bold; color: #4f46e5; background: #eeeefd; padding: 4px 10px; border-radius: 6px;">10問セット単位</span>
+            <span id="playlist-status" style="font-size: 0.85rem; color: #64748b;"></span>
+        </div>
+        
         <div id="track-info" style="font-size: 1.1rem; font-weight: bold; color: #1e293b; margin-bottom: 8px;">再生準備中...</div>
         <div id="track-detail" style="font-size: 0.95rem; color: #475569; margin-bottom: 12px; max-height: 90px; overflow-y: auto; background: #f8fafc; padding: 8px; border-radius: 6px;"></div>
         
         <audio id="audio-player" controls style="width: 100%; margin-bottom: 12px;"></audio>
         
-        <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between;">
-            <button onclick="prevTrack()" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f1f5f9; cursor: pointer; font-weight: bold;">⏮ 前の音声</button>
-            <span id="playlist-status" style="font-size: 0.85rem; color: #64748b;"></span>
-            <button onclick="nextTrack()" style="padding: 8px 16px; border-radius: 6px; border: none; background: #4f46e5; color: white; cursor: pointer; font-weight: bold;">次の音声 ⏭</button>
+        <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+            <button onclick="prevTrack()" style="padding: 8px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f1f5f9; cursor: pointer; font-weight: bold;">⏮ 前の音声</button>
+            <button onclick="nextBatch()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; cursor: pointer; font-size: 0.85rem;">次の10問へ ⏩</button>
+            <button onclick="nextTrack()" style="padding: 8px 14px; border-radius: 6px; border: none; background: #4f46e5; color: white; cursor: pointer; font-weight: bold;">次の音声 ⏭</button>
         </div>
     </div>
 
     <script>
         const playlist = {json_data};
+        const itemsPerPage = {batch_size * 2}; // 10問 = 問題10 + 解説10 = 20音声
         let currentIndex = 0;
         const player = document.getElementById('audio-player');
         const infoEl = document.getElementById('track-info');
         const detailEl = document.getElementById('track-detail');
         const statusEl = document.getElementById('playlist-status');
+        const batchEl = document.getElementById('batch-info');
+
+        function updateBatchInfo() {{
+            const totalBatches = Math.ceil(playlist.length / itemsPerPage);
+            const currentBatch = Math.floor(currentIndex / itemsPerPage) + 1;
+            const currentQ = Math.floor(currentIndex / 2) + 1;
+            batchEl.innerText = `グループ ${{currentBatch}} / ${{totalBatches}} （${{currentQ}}問目を再生中）`;
+        }}
 
         function loadTrack(index) {{
             if (index < 0 || index >= playlist.length) return;
@@ -152,13 +166,18 @@ def render_continuous_player(playlist):
             detailEl.innerText = track.text;
             
             if (track.url) {{
-                player.src = track.url;
+                let srcUrl = track.url;
+                if (srcUrl.startsWith('/')) {{
+                    srcUrl = window.location.origin + srcUrl;
+                }}
+                player.src = srcUrl;
                 player.load();
             }} else {{
                 infoEl.innerText = track.title + " (音声データなし)";
             }}
             
             statusEl.innerText = (currentIndex + 1) + ' / ' + playlist.length;
+            updateBatchInfo();
         }}
 
         function prevTrack() {{
@@ -175,9 +194,17 @@ def render_continuous_player(playlist):
             }}
         }}
 
+        function nextBatch() {{
+            const nextBatchIndex = (Math.floor(currentIndex / itemsPerPage) + 1) * itemsPerPage;
+            if (nextBatchIndex < playlist.length) {{
+                loadTrack(nextBatchIndex);
+                player.play().catch(e => console.log(e));
+            }}
+        }}
+
         player.addEventListener('ended', function() {{
             if (currentIndex < playlist.length - 1) {{
-                nextTrack();
+                nextTrack(); // 10問完了時も止まらず自動で次の10問へ突入
             }} else {{
                 infoEl.innerText = "すべての再生が完了しました";
             }}
@@ -188,7 +215,7 @@ def render_continuous_player(playlist):
         }}
     </script>
     """
-    components.html(html_code, height=320)
+    components.html(html_code, height=340)
 
 # ==========================================
 # 1. 認証機能（Supabase Auth）
@@ -1279,7 +1306,7 @@ elif menu == "科目別":
 elif menu == "過去問聞き流し":
     render_header_image()
     st.subheader("🎧 過去問連続聞き流しモード")
-    st.write("ボタンを一度押せば、問題（Q）と解説（A）が交互に自動で再生されます。寝ながらの学習にも最適です。")
+    st.write("10問ごとに自動でセットされ、10問が終わると自動的に次の10問へ移行して全問最後まで自動再生されます。")
 
     listen_type = st.radio("絞り込み方法を選択", ["年度別", "科目別"], horizontal=True, key="listen_type_radio")
 
@@ -1338,11 +1365,11 @@ elif menu == "過去問聞き流し":
                     found_audio_count += 1
 
         if playlist:
-            st.success(f"全 {len(target_rows)} 問中 {found_audio_count} 件の音声データをセットしました。")
-            render_continuous_player(playlist)
+            st.success(f"全 {len(target_rows)} 問中 {found_audio_count} 件の音声データをセットしました。（10問単位で自動切り替え再生）")
+            render_continuous_player(playlist, batch_size=10)
         else:
-            st.error("選択された区分の対応音声ファイルが見つかりませんでした。")
-
+            st.error("選択された区方の対応音声ファイルが見つかりませんでした。")
+            
 # ルート4：AIに質問（チャット）
 elif menu == "AIに質問（チャット）":
     st.title("AIたなかっち1号先生へ質問")
