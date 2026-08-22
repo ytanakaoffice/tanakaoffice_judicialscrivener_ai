@@ -1322,20 +1322,30 @@ elif menu == "過去問聞き流し":
                 a_file = get_audio_file_path("A", q_num_val, limb_val)
 
                 if q_file:
-                    playlist.append({
-                        "title": f"【問題】{q_num_val} 肢{limb_val}",
-                        "text": q_text,
-                        "url": get_audio_url(q_file)
-                    })
-                    found_audio_count += 1
+                    try:
+                        with open(q_file, "rb") as f:
+                            q_uri = get_audio_data_uri(f.read())
+                        playlist.append({
+                            "title": f"【問題】{q_num_val} 肢{limb_val}",
+                            "text": q_text,
+                            "url": q_uri
+                        })
+                        found_audio_count += 1
+                    except Exception:
+                        pass
 
                 if a_file:
-                    playlist.append({
-                        "title": f"【解説】{q_num_val} 肢{limb_val}",
-                        "text": a_text,
-                        "url": get_audio_url(a_file)
-                    })
-                    found_audio_count += 1
+                    try:
+                        with open(a_file, "rb") as f:
+                            a_uri = get_audio_data_uri(f.read())
+                        playlist.append({
+                            "title": f"【解説】{q_num_val} 肢{limb_val}",
+                            "text": a_text,
+                            "url": a_uri
+                        })
+                        found_audio_count += 1
+                    except Exception:
+                        pass
 
         if playlist:
             st.success(f"全 {len(target_rows)} 問中 {found_audio_count} 件の音声データをセットしました。")
