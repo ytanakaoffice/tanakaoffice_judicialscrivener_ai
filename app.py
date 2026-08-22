@@ -5,6 +5,7 @@ import os
 import random
 import re
 import smtplib
+import urllib.parse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -12,6 +13,7 @@ import pandas as pd
 import requests
 import stripe
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit_clickable_images import clickable_images
 from supabase import create_client
 
@@ -48,9 +50,134 @@ def init_admin_connection():
 
 supabase_admin = init_admin_connection()
 
-# アカウント完全削除時の保険用（Stripe側もキャンセルさせるため）
 if "stripe" in st.secrets and "STRIPE_SECRET_KEY" in st.secrets["stripe"]:
     stripe.api_key = st.secrets["stripe"]["STRIPE_SECRET_KEY"]
+
+# ==========================================
+# 音声ファイル検索・読み込み処理
+# ==========================================
+
+def get_audio_data_uri(audio_bytes):
+    """
+    音声のバイトデータを HTML5 audio で再生可能な Data URI に変換
+    """
+    b64 = base64.b64encode(audio_bytes).decode('utf-8')
+    return f"data:audio/mp3;base64,{b64}"
+
+def get_audio_file_path(prefix, q_num, limb):
+    """
+    static/audio_output から Q_問題番号_肢 または A_問題番号_肢 の音声ファイルを探す
+    """
+    if not q_num or not limb:
+        return None
+    
+    q_str = str(q_num).strip()
+    limb_str = str(limb).strip()
+    target_name = f"{prefix}_{q_str}_{limb_str}"
+    
+    dir_path = os.path.join(os.path.dirname(__file__), "static", "audio_output")
+    if not os.path.exists(dir_path):
+        dir_path = os.path.join("static", "audio_output")
+        
+    if not os.path.exists(dir_path):
+        return None
+        
+    try:
+        for fname in os.listdir(dir_path):
+            name_without_ext, _ = os.path.splitext(fname)
+            if name_without_ext.strip() == target_name:
+                return os.path.join(dir_path, fname)
+    except Exception:
+        pass
+        
+    return None
+
+def get_audio_url(file_path):
+    """ファイルパスを Streamlit の静的配信 URL に変換（日本語エンコード対応）"""
+    if not file_path:
+        return ""
+    norm_path = file_path.replace("\\", "/")
+    if "static/" in norm_path:
+        rel_path = norm_path.split("static/")[1]
+        # 日本語ファイル名をURLエンコード処理
+        encoded_rel_path = urllib.parse.quote(rel_path)
+        return f"/app/static/{encoded_rel_path}"
+    return ""
+
+def render_continuous_player(playlist):
+    if not playlist:
+        st.info("再生できる音声ファイルが見つかりませんでした。")
+        return
+
+    json_data = json.dumps(playlist, ensure_ascii=False)
+    
+    html_code = f"""
+    <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0; font-family: sans-serif;">
+        <div id="track-info" style="font-size: 1.1rem; font-weight: bold; color: #1e293b; margin-bottom: 8px;">再生準備中...</div>
+        <div id="track-detail" style="font-size: 0.95rem; color: #475569; margin-bottom: 12px; max-height: 90px; overflow-y: auto; background: #f8fafc; padding: 8px; border-radius: 6px;"></div>
+        
+        <audio id="audio-player" controls style="width: 100%; margin-bottom: 12px;"></audio>
+        
+        <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between;">
+            <button onclick="prevTrack()" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f1f5f9; cursor: pointer; font-weight: bold;">⏮ 前の音声</button>
+            <span id="playlist-status" style="font-size: 0.85rem; color: #64748b;"></span>
+            <button onclick="nextTrack()" style="padding: 8px 16px; border-radius: 6px; border: none; background: #4f46e5; color: white; cursor: pointer; font-weight: bold;">次の音声 ⏭</button>
+        </div>
+    </div>
+
+    <script>
+        const playlist = {json_data};
+        let currentIndex = 0;
+        const player = document.getElementById('audio-player');
+        const infoEl = document.getElementById('track-info');
+        const detailEl = document.getElementById('track-detail');
+        const statusEl = document.getElementById('playlist-status');
+
+        function loadTrack(index) {{
+            if (index < 0 || index >= playlist.length) return;
+            currentIndex = index;
+            const track = playlist[currentIndex];
+            infoEl.innerText = track.title;
+            detailEl.innerText = track.text;
+            
+            if (track.url) {{
+                player.src = track.url;
+                player.load();
+            }} else {{
+                infoEl.innerText = track.title + " (音声データなし)";
+            }}
+            
+            statusEl.innerText = (currentIndex + 1) + ' / ' + playlist.length;
+        }}
+
+        function prevTrack() {{
+            if (currentIndex > 0) {{
+                loadTrack(currentIndex - 1);
+                player.play().catch(e => console.log(e));
+            }}
+        }}
+
+        function nextTrack() {{
+            if (currentIndex < playlist.length - 1) {{
+                loadTrack(currentIndex + 1);
+                player.play().catch(e => console.log(e));
+            }}
+        }}
+
+        player.addEventListener('ended', function() {{
+            if (currentIndex < playlist.length - 1) {{
+                nextTrack();
+            }} else {{
+                infoEl.innerText = "すべての再生が完了しました";
+            }}
+        }});
+
+        if (playlist.length > 0) {{
+            loadTrack(0);
+        }}
+    </script>
+    """
+    components.html(html_code, height=320)
 
 # ==========================================
 # 1. 認証機能（Supabase Auth）
@@ -104,11 +231,10 @@ def reset_password_request(email):
         return False
 
 # ==========================================
-# 2. 決済・サブスクリプション連携（Webhook依存版）
+# 2. 決済・サブスクリプション連携
 # ==========================================
 
 def ensure_subscription_record(email, user_id):
-    """ユーザーの初期サブスクレコードが存在することを確認（安全な初期化）"""
     try:
         clean_email = email.strip().lower()
         response = supabase.table("subscriptions").select("email").eq("email", clean_email).execute()
@@ -118,16 +244,12 @@ def ensure_subscription_record(email, user_id):
                 "user_id": user_id,
                 "status": "inactive",
                 "cancel_at_period_end": False,
-                "current_period_end": "1970-01-01T00:00:00+00:00"  # ← Noneを日時に書き換える！
+                "current_period_end": "1970-01-01T00:00:00+00:00"
             }).execute()
     except Exception as e:
         print(f"ensure_subscription_record Error: {e}")
 
-
 def check_access(email):
-    """
-    Webhookによって更新されるSupabaseのテーブルだけを信じてアクセス判定する
-    """
     try:
         clean_email = email.strip().lower()
         response = supabase.table("subscriptions").select("*").eq("email", clean_email).execute()
@@ -137,11 +259,9 @@ def check_access(email):
             status = sub.get("status")
             period_end = sub.get("current_period_end")
 
-            # 1. 契約中の場合は許可
             if status in ["active", "trialing"]:
                 return True
 
-            # 2. 解約済みでも、現在日時が有効期限内（current_period_end）であれば許可
             if period_end and period_end != "1970-01-01T00:00:00+00:00":
                 try:
                     end_date = datetime.fromisoformat(str(period_end).replace("Z", "+00:00"))
@@ -156,13 +276,10 @@ def check_access(email):
         print(f"check_access Error: {e}")
         return False
 
-
 def execute_account_deletion(user_email, user_id):
-    """退会処理本体"""
     try:
         clean_email = user_email.strip().lower()
         
-        # 1. 保険: Stripe側でもサブスクリプションがあれば強制キャンセルさせる
         if stripe.api_key:
             try:
                 customers = stripe.Customer.list(email=clean_email, limit=1)
@@ -173,13 +290,11 @@ def execute_account_deletion(user_email, user_id):
             except Exception as e:
                 print(f"Stripe cancel warning: {e}")
 
-        # 2. Supabase DBの契約レコードを【管理者権限】で確実に強制削除する（RLSをバイパス）
         if supabase_admin:
             supabase_admin.table("subscriptions").delete().eq("email", clean_email).execute()
         else:
             supabase.table("subscriptions").delete().eq("email", clean_email).execute()
 
-        # 3. Supabase Authからユーザー完全削除
         if supabase_admin:
             supabase_admin.auth.admin.delete_user(user_id)
         else:
@@ -190,7 +305,6 @@ def execute_account_deletion(user_email, user_id):
     except Exception as e:
         st.error(f"退会処理中にエラーが発生しました: {e}")
         return False
-
 
 # ==========================================
 # 3. ユーティリティ・ダイアログ
@@ -253,7 +367,6 @@ def show_reset_password_dialog():
 
 @st.dialog("退会手続き（アカウント完全削除）", width="medium")
 def show_delete_account_dialog():
-    """Webhookが更新したSupabaseの情報を元に退会判定を行う"""
     if not st.session_state.get("user"):
         st.warning("ログインしていません。")
         return
@@ -263,20 +376,17 @@ def show_delete_account_dialog():
 
     is_active_recurring = False
     try:
-        # Supabaseのテーブルから直接最新情報を取得 (Webhookが更新済みである前提)
         response = supabase.table("subscriptions").select("status, cancel_at_period_end").eq("email", curr_email.strip().lower()).execute()
         if response.data:
             sub_data = response.data[0]
             status = sub_data.get("status")
             cancel_at_period_end = sub_data.get("cancel_at_period_end", False)
 
-            # statusがactiveで、かつ解約予約(cancel_at_period_end)がFalseの場合のみブロック
             if status in ["active", "trialing"] and not cancel_at_period_end:
                 is_active_recurring = True
     except Exception as e:
         print(f"DB取得エラー: {e}")
 
-    # 自動更新がONのままの場合は解約へ案内
     if is_active_recurring:
         st.error("【解約が必要です】サブスクリプションの自動更新が有効です。")
         st.write(
@@ -293,13 +403,11 @@ def show_delete_account_dialog():
             unsafe_allow_html=True
         )
         
-        # Webhookの反映待ち用にリロードボタンを設置
         st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
         if st.button("🔄 Stripeで解約後、状態を再確認する", key="btn_recheck_in_dialog", use_container_width=True):
             st.rerun()
         return
 
-    # 解約済み（Webhookでcancel_at_period_end=Trueになった状態）の場合は退会へ進む
     st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
 
     st.markdown("""
@@ -391,7 +499,6 @@ if st.session_state.get("show_delete_modal"):
 # ==========================================
 # A. 未ログイン時の表示
 # ==========================================
-# ★ここでログインしていない場合は絶対に処理を止める (NameError防止)
 if not st.session_state.get("user"):
     bg_pc_b64 = get_image_base64("images/1_background_PC.png") or get_image_base64("1_background_PC.png")
     bg_sp_b64 = get_image_base64("images/1_background_mobile.png") or get_image_base64("1_background_mobile.png")
@@ -410,7 +517,6 @@ if not st.session_state.get("user"):
             visibility: hidden;
         }}
         
-        /* PC版の基本設定はそのまま */
         [data-testid="stMainBlockContainer"] {{
             padding-top: 44vh !important;
             padding-bottom: 20px !important;
@@ -428,60 +534,52 @@ if not st.session_state.get("user"):
             backdrop-filter: blur(6px) !important;
         }}
 
-        /* --- 【修正】スマホ表示用の設定 --- */
-        @media (max-width: 600px) {{
+        @media (max-width: 768px) {{
             .stApp {{
                 background-image: linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), url("{bg_sp_b64}");
                 background-position: top center;
             }}
             
-            /* 全体のコンテナを少し上に調整し、横幅をスリムに */
             [data-testid="stMainBlockContainer"] {{
-                padding-top: 20vh !important;
+                padding-top: 35vh !important;
                 max-width: 85% !important;
                 margin: 0 auto !important;
             }}
 
-            /* 白い枠自体の余白を最小限に */
             [data-testid="stMainBlockContainer"] > div:first-child {{
-                padding: 3px !important; 
+                padding: 10px !important; 
             }}
 
-            /* 文字サイズを全体的に小さく */
             h2, h3 {{
-                font-size: 1.0rem !important;
-                margin-bottom: 4px !important;
+                font-size: 1.1rem !important;
+                margin-bottom: 5px !important;
             }}
             
-            /* 入力欄のサイズ調整 */
             div[data-testid="stTextInput"] {{
-                margin-bottom: -2px !important;
+                margin-bottom: -10px !important;
             }}
             
             input {{
-                padding: 2px !important;
-                font-size: 0.2rem !important;
+                padding: 6px !important;
+                font-size: 0.9rem !important;
             }}
             
-            /* ボタンの余白も削る */
             button {{
-                padding: 0.3px 0.3px !important;
-                font-size: 0.2rem !important;
+                padding: 4px 8px !important;
+                font-size: 0.9rem !important;
             }}
             
-            /* タブの文字も小さく */
             button[data-baseweb="tab"] p {{
-                font-size: 0.2rem !important;
+                font-size: 0.9rem !important;
             }}
         }}
 
-        /* 文字色の設定などは維持 */
         [data-testid="stMainBlockContainer"] h1,
         [data-testid="stMainBlockContainer"] h2,
         [data-testid="stMainBlockContainer"] p,
         [data-testid="stMainBlockContainer"] label {{
             color: #0F172A !important;
-            font-weight: 400 !important;
+            font-weight: 700 !important;
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -544,22 +642,17 @@ if not st.session_state.get("user"):
     if st.button("特定商取引法に基づく表記・退会案内", key="btn_tokusho_unlogin", use_container_width=True):
         show_tokusho_dialog()
 
-    # ログインしていない場合はここで処理を完全に停止する
     st.stop()
 
 
 # ==========================================
-# 以降は「確実にログインしている」ユーザーのみ到達する
+# ユーザー検証
 # ==========================================
-
-# グローバル変数を安全に取得（NameError完全防止）
 current_user = st.session_state["user"]
 user_email = current_user["email"]
 user_id = current_user["id"]
 
-# DBにユーザーレコードがあるか確認・作成
 ensure_subscription_record(user_email, user_id)
-
 
 # ==========================================
 # B. 未契約・期限切れ時の案内画面表示
@@ -574,7 +667,6 @@ if not check_access(user_email):
     st.link_button("決済画面へ進む（Stripe Checkout）", stripe_url, type="primary", use_container_width=True)
     
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    # Webhook反映待ち用の再読み込みボタン
     if st.button("🔄 決済完了後の状態を再確認する", key="btn_recheck_subscription", use_container_width=True):
         st.rerun()
 
@@ -676,21 +768,6 @@ def send_report_email(q_no, reason):
     except Exception as e:
         print(f"Mail Error: {e}")
         return False
-
-def get_voice_audio_base64(text, speaker_id=2):
-    voicevox_url = st.secrets["voicevox"]["VOICEVOX_URL"]
-    try:
-        res1 = requests.post(f"{voicevox_url}/audio_query?text={text}&speaker={speaker_id}")
-        query = res1.json()
-        res2 = requests.post(
-            f"{voicevox_url}/synthesis?speaker={speaker_id}",
-            headers={"Content-Type": "application/json"},
-            data=json.dumps(query),
-        )
-        audio_b64 = base64.b64encode(res2.content).decode("utf-8")
-        return f"data:audio/wav;base64,{audio_b64}"
-    except Exception:
-        return ""
 
 @st.cache_data
 def load_data():
@@ -849,7 +926,7 @@ if st.button("特商法表記", key="btn_sidebar_tokusho", use_container_width=T
 
 st.sidebar.markdown("---")
 
-menu = st.sidebar.radio("移動先を選択", ["年度別", "科目別", "AIに質問（チャット）"])
+menu = st.sidebar.radio("移動先を選択", ["年度別", "科目別", "過去問聞き流し", "AIに質問（チャット）"])
 
 # ルート1：年度別
 if menu == "年度別":
@@ -924,15 +1001,17 @@ if menu == "年度別":
                 st.markdown(f"分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
                 st.markdown(f'<div class="custom-question-card">{row.get("文章", "")}</div>', unsafe_allow_html=True)
 
+                q_num_val = row.get("問題番号", "")
+                limb_val = row.get("肢", "")
+                
                 col_audio_btn, col_audio_space = st.columns([1, 2])
                 with col_audio_btn:
                     if st.button("🔊 問題文を読み上げる", key=f"btn_audio_y_{ptr}", use_container_width=True):
-                        with st.spinner("音声を生成中..."):
-                            audio_src = get_voice_audio_base64(row.get("文章", ""))
-                            if audio_src:
-                                st.audio(audio_src, format="audio/wav", autoplay=True)
-                            else:
-                                st.error("音声生成に失敗しました。VOICEVOXが起動しているか確認してください。")
+                        q_file = get_audio_file_path("Q", q_num_val, limb_val)
+                        if q_file:
+                            st.audio(q_file, autoplay=True)
+                        else:
+                            st.error(f"問題音声（Q_{q_num_val}_{limb_val}）が見つかりません。")
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -978,6 +1057,15 @@ if menu == "年度別":
                                 st.image("images/1_teacher_sad_x.png", width=45)
                         
                     st.write(f"解説: {row.get('簡単な解説', '解説がありません')}")
+
+                    if st.button("🔊 解説を読み上げる", key=f"btn_audio_ans_y_{ptr}"):
+                        a_file = get_audio_file_path("A", q_num_val, limb_val)
+                        if a_file:
+                            st.audio(a_file, autoplay=True)
+                        else:
+                            st.error(f"解説音声（A_{q_num_val}_{limb_val}）が見つかりません。")
+
+                    st.markdown("<br>", unsafe_allow_html=True)
 
                     if st.button("次の問題へ ➡", key="y_btn_next"):
                         st.session_state.y_ptr += 1
@@ -1076,15 +1164,17 @@ elif menu == "科目別":
                 st.markdown(f"問題番号: {row.get('問題番号', '')} ｜ 肢: {row.get('肢', '')}")
                 st.markdown(f'<div class="custom-question-card">{row.get("文章", "")}</div>', unsafe_allow_html=True)
 
+                q_num_val = row.get("問題番号", "")
+                limb_val = row.get("肢", "")
+
                 col_audio_btn_c, col_audio_space_c = st.columns([1, 2])
                 with col_audio_btn_c:
                     if st.button("🔊 問題文を読み上げる", key=f"btn_audio_c_{ptr_c}", use_container_width=True):
-                        with st.spinner("音声を生成中..."):
-                            audio_src = get_voice_audio_base64(row.get("文章", ""))
-                            if audio_src:
-                                st.audio(audio_src, format="audio/wav", autoplay=True)
-                            else:
-                                st.error("音声生成に失敗しました。VOICEVOXが起動しているか確認してください。")
+                        q_file = get_audio_file_path("Q", q_num_val, limb_val)
+                        if q_file:
+                            st.audio(q_file, autoplay=True)
+                        else:
+                            st.error(f"問題音声（Q_{q_num_val}_{limb_val}）が見つかりません。")
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1131,6 +1221,15 @@ elif menu == "科目別":
                         
                     st.write(f"解説: {row.get('簡単な解説', '解説がありません')}")
 
+                    if st.button("🔊 解説を読み上げる", key=f"btn_audio_ans_c_{ptr_c}"):
+                        a_file = get_audio_file_path("A", q_num_val, limb_val)
+                        if a_file:
+                            st.audio(a_file, autoplay=True)
+                        else:
+                            st.error(f"解説音声（A_{q_num_val}_{limb_val}）が見つかりません。")
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+
                     if st.button("次の問題へ ➡", key="c_btn_next"):
                         st.session_state.c_ptr += 1
                         st.session_state.c_answered = False
@@ -1165,7 +1264,76 @@ elif menu == "科目別":
                     reset_inline_chat()
                     st.rerun()
 
-# ルート3：AIに質問（チャット）
+# ルート3：過去問聞き流し
+elif menu == "過去問聞き流し":
+    render_header_image()
+    st.subheader("🎧 過去問連続聞き流しモード")
+    st.write("ボタンを一度押せば、問題（Q）と解説（A）が交互に自動で再生されます。寝ながらの学習にも最適です。")
+
+    listen_type = st.radio("絞り込み方法を選択", ["年度別", "科目別"], horizontal=True, key="listen_type_radio")
+
+    target_rows = pd.DataFrame()
+
+    if listen_type == "年度別":
+        if not df.empty and "問題番号" in df.columns:
+            all_questions = df["問題番号"].dropna().unique()
+
+            def extract_session(q_no):
+                return str(q_no).split("第")[0] if "第" in str(q_no) else str(q_no)
+
+            def session_sort_key(s):
+                era_val = 2 if "令和" in s else (1 if "平成" in s else 0)
+                year_val = 1 if "元" in s else (int(re.search(r'(\d+)年', s).group(1)) if re.search(r'(\d+)年', s) else 0)
+                return (era_val, year_val, s)
+
+            sessions = sorted(list(set([extract_session(q) for q in all_questions])), key=session_sort_key)
+            sel_session = st.selectbox("聞き流す年度・回を選んでください", sessions, key="listen_session_select")
+            target_rows = df[df["問題番号"].astype(str).str.startswith(sel_session)].reset_index(drop=True)
+
+    else:
+        if not df.empty and "分野" in df.columns:
+            categories = sorted(df["分野"].dropna().unique())
+            sel_cat = st.selectbox("聞き流す科目を選んでください", categories, key="listen_cat_select")
+            target_rows = df[df["分野"] == sel_cat].reset_index(drop=True)
+
+    if not target_rows.empty:
+        playlist = []
+        found_audio_count = 0
+        
+     
+        with st.spinner("音声ファイルをセットアップ中..."):
+            for _, row in target_rows.iterrows():
+                q_num_val = row.get("問題番号", "")
+                limb_val = row.get("肢", "")
+                q_text = str(row.get("文章", ""))
+                a_text = f"正解: {row.get('正誤', '')} ｜ 解説: {row.get('簡単な解説', '')}"
+
+                q_file = get_audio_file_path("Q", q_num_val, limb_val)
+                a_file = get_audio_file_path("A", q_num_val, limb_val)
+
+                if q_file:
+                    playlist.append({
+                        "title": f"【問題】{q_num_val} 肢{limb_val}",
+                        "text": q_text,
+                        "url": get_audio_url(q_file)
+                    })
+                    found_audio_count += 1
+
+                if a_file:
+                    playlist.append({
+                        "title": f"【解説】{q_num_val} 肢{limb_val}",
+                        "text": a_text,
+                        "url": get_audio_url(a_file)
+                    })
+                    found_audio_count += 1
+
+        if playlist:
+            st.success(f"全 {len(target_rows)} 問中 {found_audio_count // 2} 問の音声データをセットしました。")
+            render_continuous_player(playlist)
+        else:
+            st.error("選択された区分の対応音声ファイルが `app/audio_output` 内に見つかりませんでした。")
+
+# ルート4：AIに質問（チャット）
 elif menu == "AIに質問（チャット）":
     st.title("AIたなかっち1号先生へ質問")
     st.write("過去問に関する疑問や、試験勉強の悩みをなんでも聞いてください！")

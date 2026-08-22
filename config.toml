@@ -1,1 +1,4 @@
 verify_jwt = false
+
+[server]
+enableStaticServing = true
