@@ -95,7 +95,7 @@ def get_audio_file_path(prefix, q_num, limb):
     return None
 
 def get_audio_url(file_path):
-    """音声ファイルのURLパスを返す（軽量化・Windowsパス対応）"""
+    """音声ファイルのURLパスを返す（先頭にスラッシュを付与）"""
     if not file_path or not os.path.exists(file_path):
         return ""
     
@@ -105,7 +105,8 @@ def get_audio_url(file_path):
     # Windows環境の '\' を URL用の '/' に変換
     rel_path = rel_path.replace("\\", "/")
     
-    return f"app/static/{rel_path}"
+    # 先頭に「/」を付けてルートからの絶対パスにする
+    return f"/app/static/{rel_path}"
 
 def render_continuous_player(playlist):
     if not playlist:
