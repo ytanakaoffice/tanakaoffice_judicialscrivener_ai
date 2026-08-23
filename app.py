@@ -1070,18 +1070,24 @@ if menu == "年度別":
                 current_target_idx = order[ptr]
                 q_options = [f"第 {i+1} 問" for i in range(len(session_rows))]
 
-                with col_question:
-                    selected_q = st.selectbox("現在の問題（選択して移動も可能）:", q_options, index=current_target_idx, key="y_q_select")
-    
-                target_start_idx = int(selected_q.replace("第 ", "").replace(" 問", "")) - 1
-                if target_start_idx != current_target_idx:
+                def on_change_y_q():
+                    selected = st.session_state.y_q_select
+                    target_start_idx = int(selected.replace("第 ", "").replace(" 問", "")) - 1
                     st.session_state.y_ptr = order.index(target_start_idx)
                     st.session_state.y_answered = False
                     st.session_state.y_user_ans = None
                     st.session_state.teacher_state = "normal"
                     st.session_state.y_active_audio = None
                     reset_inline_chat()
-                    st.rerun()
+
+                with col_question:
+                    st.selectbox(
+                        "現在の問題（選択して移動も可能）:", 
+                        q_options, 
+                        index=current_target_idx, 
+                        key="y_q_select",
+                        on_change=on_change_y_q
+                    )
 
                 row = session_rows.iloc[current_target_idx]
                 acc_rate = (st.session_state.y_correct_count / st.session_state.y_total_count * 100) if st.session_state.y_total_count > 0 else 0
@@ -1195,6 +1201,12 @@ if menu == "年度別":
                         st.session_state.y_user_ans = None
                         st.session_state.teacher_state = "normal"
                         st.session_state.y_active_audio = None
+                        
+                        # 次の問題へ進むときにセレクトボックスの表示も連動させる
+                        if st.session_state.y_ptr < len(order):
+                            next_target_idx = order[st.session_state.y_ptr]
+                            st.session_state.y_q_select = f"第 {next_target_idx + 1} 問"
+                            
                         reset_inline_chat()
                         st.rerun()
                         
@@ -1473,17 +1485,23 @@ elif menu == "付箋問題":
                 current_target_idx_bm = order_bm[ptr_bm]
                 q_options_bm = [f"第 {i+1} 問" for i in range(len(bookmark_rows))]
 
-                selected_q_bm = st.selectbox("現在の問題（選択して移動も可能）:", q_options_bm, index=current_target_idx_bm)
-                
-                target_start_idx_bm = int(selected_q_bm.replace("第 ", "").replace(" 問", "")) - 1
-                if target_start_idx_bm != current_target_idx_bm:
-                    st.session_state.bm_ptr = order_bm.index(target_start_idx_bm)
+                def on_change_bm_q():
+                    selected = st.session_state.bm_q_select
+                    target_start_idx = int(selected.replace("第 ", "").replace(" 問", "")) - 1
+                    st.session_state.bm_ptr = order_bm.index(target_start_idx)
                     st.session_state.bm_answered = False
                     st.session_state.bm_user_ans = None
                     st.session_state.teacher_state = "normal"
                     st.session_state.bm_active_audio = None
                     reset_inline_chat()
-                    st.rerun()
+
+                selected_q_bm = st.selectbox(
+                    "現在の問題（選択して移動も可能）:", 
+                    q_options_bm, 
+                    index=current_target_idx_bm, 
+                    key="bm_q_select",
+                    on_change=on_change_bm_q
+                )
 
                 row = bookmark_rows.iloc[current_target_idx_bm]
                 acc_rate_bm = (st.session_state.bm_correct_count / st.session_state.bm_total_count * 100) if st.session_state.bm_total_count > 0 else 0
