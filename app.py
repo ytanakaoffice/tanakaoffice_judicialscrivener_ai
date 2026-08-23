@@ -1070,7 +1070,6 @@ if menu == "年度別":
                 current_target_idx = order[ptr]
                 q_options = [f"第 {i+1} 問" for i in range(len(session_rows))]
 
-                # key と on_change を削除し、以前のように直接値を受け取る
                 with col_question:
                     selected_q = st.selectbox(
                         "現在の問題（選択して移動も可能）:", 
@@ -1078,7 +1077,6 @@ if menu == "年度別":
                         index=current_target_idx
                     )
                 
-                # 選択が変更されたかどうかの判定処理を復活させる
                 target_start_idx = int(selected_q.replace("第 ", "").replace(" 問", "")) - 1
                 if target_start_idx != current_target_idx:
                     st.session_state.y_ptr = order.index(target_start_idx)
@@ -1089,18 +1087,9 @@ if menu == "年度別":
                     reset_inline_chat()
                     st.rerun()
 
-                with col_question:
-                    st.selectbox(
-                        "現在の問題（選択して移動も可能）:", 
-                        q_options, 
-                        index=current_target_idx, 
-                        key="y_q_select",
-                        on_change=on_change_y_q
-                    )
-
                 row = session_rows.iloc[current_target_idx]
                 acc_rate = (st.session_state.y_correct_count / st.session_state.y_total_count * 100) if st.session_state.y_total_count > 0 else 0
-
+                
                 # 1. 上部に「タイトル・正答率」と「ボタン2つ」を横並びで配置
                 col_info, col_audio, col_bm = st.columns([3, 1, 1])
 
