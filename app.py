@@ -104,6 +104,18 @@ def get_audio_url(file_path):
     
     return f"/app/static/{encoded_path}"
 
+def render_no_download_audio(file_path):
+    if file_path and os.path.exists(file_path):
+        try:
+            with open(file_path, "rb") as f:
+                b64_str = base64.b64encode(f.read()).decode("utf-8")
+            audio_html = f'<audio controls controlsList="nodownload" autoplay style="width: 100%;"><source src="data:audio/mp3;base64,{b64_str}" type="audio/mp3"></audio>'
+            st.markdown(audio_html, unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"音声の読み込みに失敗しました: {e}")
+    else:
+        st.error("音声ファイルが見つかりません。")
+
 def render_continuous_player(playlist, current_batch, total_batches, auto_start=False):
     if not playlist:
         st.info("再生できる音声ファイルが見つかりませんでした。")
@@ -124,7 +136,7 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
         <div id="track-info" style="font-size: 1.05rem; font-weight: bold; color: #1e293b; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">再生準備中...</div>
         <div id="track-detail" style="font-size: 0.9rem; color: #475569; margin-bottom: 12px; height: 90px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 6px; box-sizing: border-box; line-height: 1.4;"></div>
         
-        <audio id="audio-player" controls style="width: 100%; margin-bottom: 12px;"></audio>
+        <audio id="audio-player" controls controlsList="nodownload" style="width: 100%; margin-bottom: 12px;"></audio>
         
         <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
             <button onclick="prevTrack()" style="padding: 8px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f1f5f9; cursor: pointer; font-weight: bold;">⏮ 前の音声</button>
@@ -444,7 +456,7 @@ def show_delete_account_dialog():
         print(f"DB取得エラー: {e}")
 
     if is_active_recurring:
-        st.error("<strong>【解約が必要です】</strong>サブスクリプションの自動更新が有効です。")
+        st.error("<b>【解約が必要です】</b>サブスクリプションの自動更新が有効です。")
         st.write(
             "アカウントを削除する前に、先に『契約管理・解約』からサブスクリプションの解約（自動更新停止）を行ってください。"
             "解約を行わずにアカウントを削除すると、次回以降の自動請求が継続してしまう恐れがあります。"
@@ -467,7 +479,7 @@ def show_delete_account_dialog():
     st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
 
     st.markdown("""
-    <strong>・注意事項および同意事項:</strong><br>
+    <b>・注意事項および同意事項:</b><br>
     1. 解約済みサブスクリプションの残りの契約有効期間がある場合でも、退会完了と同時にサービスの利用権限は即時失効します。<br>
     2. 日割り計算等による返金・決済のキャンセル対応は理由を問わず一切行われません。<br>
     3. アカウント削除後に同じメールアドレスで再登録しても、過去のデータは引き継げません。
@@ -500,35 +512,35 @@ def show_tokusho_dialog():
     st.markdown(f"""
     <h3>特定商取引法に基づく表記</h3>
 
-    <strong>・事業者名・代表運営者：</strong><br>
+    <b>・事業者名・代表運営者：</b><br>
     請求があった場合、遅滞なく開示いたします（下記お問い合わせ先までご連絡ください）。<br><br>
 
-    <strong>・所在地・電話番号：</strong><br>
+    <b>・所在地・電話番号：</b><br>
     請求があった場合、遅滞なく開示いたします（下記お問い合わせ先までご連絡ください）。<br><br>
 
-    <strong>・お問い合わせ先：</strong><br>
+    <b>・お問い合わせ先：</b><br>
     {contact_email}（またはアプリ内のお問い合わせフォーム）<br><br>
 
-    <strong>・販売価格：</strong><br>
+    <b>・販売価格：</b><br>
     月額 3,980円（税込）<br><br>
 
-    <strong>・お支払い方法：</strong><br>
+    <b>・お支払い方法：</b><br>
     クレジットカード決済（Stripe）<br><br>
 
-    <strong>・サービス提供時期：</strong><br>
+    <b>・サービス提供時期：</b><br>
     決済手続き完了後、すぐにご利用いただけます。<br><br>
 
-    <strong>・返品・キャンセル：</strong><br>
+    <b>・返品・キャンセル：</b><br>
     商品の性質上、購入後の返金やキャンセルには応じかねます（解約後は現在の有効期限まで利用可能です）。
 
     <hr>
 
     <h3>解約およびアカウント削除（退会）について</h3>
 
-    <strong>・解約方法（サブスクリプション停止）：</strong><br>
+    <b>・解約方法（サブスクリプション停止）：</b><br>
     サイドバーの「契約管理・解約」ボタンからいつでも自動更新の停止が可能です。解約手続き後も、現在の契約有効期限まではサービスをご利用いただけます。<br><br>
 
-    <strong>・アカウント完全削除（退会）：</strong><br>
+    <b>・アカウント完全削除（退会）：</b><br>
     「契約管理・解約」にて自動更新を停止後、アプリ内の退会ボタンから即時アカウントを削除可能です。または上記お問い合わせ先メールアドレスまで「退会希望」と記載してご連絡いただくことでも対応いたします。
     """, unsafe_allow_html=True)
 
@@ -952,36 +964,41 @@ def render_inline_chat(row):
 render_ai_teacher()
 
 st.sidebar.title("メニュー")
-st.sidebar.write(f"ログイン中: {user_email}")
 
-col_out, col_stripe = st.sidebar.columns(2)
-with col_out:
+# ログイン中表示の右あたりにログアウトボタンを配置
+col_login_text, col_logout_col = st.sidebar.columns([3, 2])
+with col_login_text:
+    st.write(f"ログイン中: {user_email}")
+with col_logout_col:
     if st.button("ログアウト", key="sidebar_logout", use_container_width=True):
         supabase.auth.sign_out()
         st.session_state.clear()
         st.rerun()
 
-stripe_portal_url = st.secrets.get("stripe", {}).get("STRIPE_PORTAL_URL", "#")
+st.sidebar.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
 
-with col_stripe:
+# 2x2の配置:
+# 契約管理・解約 退会
+# パスワード変更 特商法表記
+col_row1_left, col_row1_right = st.sidebar.columns(2)
+with col_row1_left:
+    stripe_portal_url = st.secrets.get("stripe", {}).get("STRIPE_PORTAL_URL", "#")
     st.markdown(
-        f'<a href="{stripe_portal_url}" target="_blank">'
-        f'<button style="width:100%; padding:6px; border-radius:4px; background-color:#4F46E5; color:white; border:none; cursor:pointer; font-size:12px;">'
+        f'<a href="{stripe_portal_url}" target="_blank" style="text-decoration: none;">'
+        f'<button style="width:100%; padding:6px; border-radius:4px; background-color:#4F46E5; color:white; border:none; cursor:pointer; font-size:12px; font-weight:bold;">'
         f'契約管理・解約'
         f'</button></a>',
         unsafe_allow_html=True
     )
-
-# サイドバーに「パスワード変更」ボタンを移動
-if st.button("パスワード変更", key="btn_sidebar_change_pw", use_container_width=True):
-    show_change_password_dialog()
-
-col_delete_side, col_tokusho_side = st.sidebar.columns(2)
-with col_delete_side:
+with col_row1_right:
     if st.button("退会手続き", key="btn_sidebar_delete_account", use_container_width=True):
         show_delete_account_dialog()
 
-with col_tokusho_side:
+col_row2_left, col_row2_right = st.sidebar.columns(2)
+with col_row2_left:
+    if st.button("パスワード変更", key="btn_sidebar_change_pw", use_container_width=True):
+        show_change_password_dialog()
+with col_row2_right:
     if st.button("特商法表記", key="btn_sidebar_tokusho", use_container_width=True):
         show_tokusho_dialog()
 
@@ -1100,9 +1117,9 @@ if menu == "年度別":
                                 st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
 
-                # 音声プレイヤーを幅いっぱいに表示して音量バー等が見えるようにする
+                # 音声プレイヤーを幅いっぱいに表示（ダウンロード禁止・再生速度変更のみ）
                 if st.session_state.get("y_active_audio"):
-                    st.audio(st.session_state.y_active_audio, autoplay=True)
+                    render_no_download_audio(st.session_state.y_active_audio)
 
                 # 2. 問題番号・肢の補足表示
                 st.caption(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
@@ -1157,7 +1174,7 @@ if menu == "年度別":
                     if st.button("🔊 解説を読み上げる", key=f"btn_audio_ans_y_{ptr}"):
                         a_file = get_audio_file_path("A", q_num_val, limb_val)
                         if a_file:
-                            st.audio(a_file, autoplay=True)
+                            render_no_download_audio(a_file)
                         else:
                             st.error(f"解説音声（A_{q_num_val}_{limb_val}）が見つかりません。")
 
@@ -1300,9 +1317,9 @@ elif menu == "科目別":
                                 st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
 
-                # 音声プレイヤーを幅いっぱいに表示して音量バー等が見えるようにする
+                # 音声プレイヤーを幅いっぱいに表示（ダウンロード禁止・再生速度変更のみ）
                 if st.session_state.get("c_active_audio"):
-                    st.audio(st.session_state.c_active_audio, autoplay=True)
+                    render_no_download_audio(st.session_state.c_active_audio)
 
                 # 2. 問題番号・肢の補足表示
                 st.caption(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
@@ -1357,7 +1374,7 @@ elif menu == "科目別":
                     if st.button("🔊 解説を読み上げる", key=f"btn_audio_ans_c_{ptr_c}"):
                         a_file = get_audio_file_path("A", q_num_val, limb_val)
                         if a_file:
-                            st.audio(a_file, autoplay=True)
+                            render_no_download_audio(a_file)
                         else:
                             st.error(f"解説音声（A_{q_num_val}_{limb_val}）が見つかりません。")
 
@@ -1503,9 +1520,9 @@ elif menu == "付箋問題":
                                 st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
 
-                # 音声プレイヤーを幅いっぱいに表示して音量バー等が見えるようにする
+                # 音声プレイヤーを幅いっぱいに表示（ダウンロード禁止・再生速度変更のみ）
                 if st.session_state.get("bm_active_audio"):
-                    st.audio(st.session_state.bm_active_audio, autoplay=True)
+                    render_no_download_audio(st.session_state.bm_active_audio)
 
                 # 2. 問題番号・肢の補足表示
                 st.caption(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
@@ -1560,7 +1577,7 @@ elif menu == "付箋問題":
                     if st.button("🔊 解説を読み上げる", key=f"btn_audio_ans_bm_{ptr_bm}"):
                         a_file = get_audio_file_path("A", q_num_val, limb_val)
                         if a_file:
-                            st.audio(a_file, autoplay=True)
+                            render_no_download_audio(a_file)
                         else:
                             st.error(f"解説音声（A_{q_num_val}_{limb_val}）が見つかりません。")
 
