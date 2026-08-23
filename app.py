@@ -259,7 +259,7 @@ def reset_password_request(email):
         st.error(f"送信エラー: {e}")
         return False
 
-# ==========================================
+# # ==========================================
 # 1.5 付箋管理機能（Supabase DB）
 # ==========================================
 def get_user_bookmarks(user_id):
@@ -267,7 +267,7 @@ def get_user_bookmarks(user_id):
         res = supabase.table("bookmarks").select("question_id").eq("user_id", user_id).execute()
         return [item["question_id"] for item in res.data]
     except Exception as e:
-        print(f"Bookmark fetch error: {e}")
+        st.error(f"付箋データの取得に失敗しました: {e}")
         return []
 
 def add_bookmark(user_id, question_id):
@@ -275,7 +275,7 @@ def add_bookmark(user_id, question_id):
         supabase.table("bookmarks").insert({"user_id": user_id, "question_id": question_id}).execute()
         return True
     except Exception as e:
-        print(f"Bookmark add error: {e}")
+        st.error(f"付箋の追加に失敗しました: {e}")
         return False
 
 def remove_bookmark(user_id, question_id):
@@ -283,7 +283,7 @@ def remove_bookmark(user_id, question_id):
         supabase.table("bookmarks").delete().eq("user_id", user_id).eq("question_id", question_id).execute()
         return True
     except Exception as e:
-        print(f"Bookmark remove error: {e}")
+        st.error(f"付箋の削除に失敗しました: {e}")
         return False
 
 # ==========================================
