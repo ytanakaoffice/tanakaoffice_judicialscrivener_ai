@@ -994,6 +994,15 @@ with col_row1_right:
     if st.button("退会手続き", key="btn_sidebar_delete_account", use_container_width=True):
         show_delete_account_dialog()
 
+st.markdown("""
+<style>
+    /* サイドバー内のボタンの文字折り返しを禁止する */
+    section[data-testid="stSidebar"] button {
+        white-space: nowrap !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 col_row2_left, col_row2_right = st.sidebar.columns(2)
 with col_row2_left:
     if st.button("パスワード変更", key="btn_sidebar_change_pw", use_container_width=True):
@@ -1056,14 +1065,14 @@ if menu == "年度別":
 
             ptr = st.session_state.y_ptr
             order = st.session_state.y_order
-            
+
             if ptr < len(order):
                 current_target_idx = order[ptr]
                 q_options = [f"第 {i+1} 問" for i in range(len(session_rows))]
 
                 with col_question:
                     selected_q = st.selectbox("現在の問題（選択して移動も可能）:", q_options, index=current_target_idx, key="y_q_select")
-                
+    
                 target_start_idx = int(selected_q.replace("第 ", "").replace(" 問", "")) - 1
                 if target_start_idx != current_target_idx:
                     st.session_state.y_ptr = order.index(target_start_idx)
