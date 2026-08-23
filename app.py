@@ -1057,45 +1057,52 @@ if menu == "年度別":
                 row = session_rows.iloc[current_target_idx]
                 acc_rate = (st.session_state.y_correct_count / st.session_state.y_total_count * 100) if st.session_state.y_total_count > 0 else 0
 
-                st.markdown(
-                    f'<div style="font-size: 1.25rem; font-weight: 700; color: #0F172A; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; margin-top: 8px; margin-bottom: 12px;">'
-                    f'<span>【 年度: {selected_session} 】 ( {ptr + 1} / {len(session_rows)} 問目 )</span>'
-                    f'<span style="font-size: 0.9rem; font-weight: 500; color: #475569; margin-left: 6px;"> ｜ 正答率: {acc_rate:.1f}% ({st.session_state.y_total_count}問中 {st.session_state.y_correct_count}問正解)</span>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-                st.markdown(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
-                st.markdown(f'<div class="custom-question-card">{row.get("文章", "")}</div>', unsafe_allow_html=True)
+                # 1. 上部に「タイトル・正答率」と「ボタン2つ」を横並びで配置
+                col_info, col_audio, col_bm = st.columns([3, 1, 1])
 
                 q_num_val = row.get("問題番号", "")
                 limb_val = row.get("肢", "")
                 q_key = f"{q_num_val}_{limb_val}"
                 is_bookmarked = q_key in st.session_state.user_bookmarks
 
-                col_audio_btn, col_bm_btn, _ = st.columns([1, 1, 1])
-                with col_audio_btn:
-                    if st.button("🔊 問題文を読み上げる", key=f"btn_audio_y_{ptr}", use_container_width=True):
+                with col_info:
+                    st.markdown(
+                        f'<div style="font-size: 1.1rem; font-weight: 700; color: #0F172A; line-height: 1.3;">'
+                        f'【 年度: {selected_session} 】 ( {ptr + 1} / {len(session_rows)} 問目 )<br>'
+                        f'<span style="font-size: 0.85rem; font-weight: 500; color: #475569;">正答率: {acc_rate:.1f}% ({st.session_state.y_total_count}問中 {st.session_state.y_correct_count}問正解)</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+                with col_audio:
+                    if st.button("🔊 音声", key=f"btn_audio_y_{ptr}", use_container_width=True):
                         q_file = get_audio_file_path("Q", q_num_val, limb_val)
                         if q_file:
                             st.audio(q_file, autoplay=True)
                         else:
-                            st.error(f"問題音声（Q_{q_num_val}_{limb_val}）が見つかりません。")
-                with col_bm_btn:
+                            st.error("音声なし")
+
+                with col_bm:
                     if is_bookmarked:
-                        if st.button("📌 付箋を外す", key=f"bm_remove_y_{ptr}", type="primary", use_container_width=True):
+                        if st.button("📌 解除", key=f"bm_remove_y_{ptr}", type="primary", use_container_width=True):
                             if remove_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.remove(q_key)
                                 st.toast("付箋を外しました", icon="🗑️")
                                 st.rerun()
                     else:
-                        if st.button("🔖 付箋をつける", key=f"bm_add_y_{ptr}", use_container_width=True):
+                        if st.button("🔖 付箋", key=f"bm_add_y_{ptr}", use_container_width=True):
                             if add_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.append(q_key)
                                 st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
 
-                st.markdown("<br>", unsafe_allow_html=True)
+                # 2. 問題番号・肢の補足表示
+                st.caption(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
 
+                # 3. メインの問題文カード
+                st.markdown(f'<div class="custom-question-card">{row.get("文章", "")}</div>', unsafe_allow_html=True)
+
+                # 4. 〇✖ボタン（問題文の直下に配置）
                 if not st.session_state.y_answered:
                     clicked = clickable_images(
                         [get_image_base64("images/btn_o.png"), get_image_base64("images/btn_x.png")]
@@ -1241,45 +1248,52 @@ elif menu == "科目別":
                 row = cat_rows.iloc[current_target_idx_c]
                 acc_rate_c = (st.session_state.c_correct_count / st.session_state.c_total_count * 100) if st.session_state.c_total_count > 0 else 0
 
-                st.markdown(
-                    f'<div style="font-size: 1.25rem; font-weight: 700; color: #0F172A; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; margin-top: 8px; margin-bottom: 12px;">'
-                    f'<span>【 科目: {selected_cat} 】 ( {ptr_c + 1} / {len(cat_rows)} 問目 )</span>'
-                    f'<span style="font-size: 0.9rem; font-weight: 500; color: #475569; margin-left: 6px;"> ｜ 正答率: {acc_rate_c:.1f}% ({st.session_state.c_total_count}問中 {st.session_state.c_correct_count}問正解)</span>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-                st.markdown(f"問題番号: {row.get('問題番号', '')} ｜ 肢: {row.get('肢', '')}")
-                st.markdown(f'<div class="custom-question-card">{row.get("文章", "")}</div>', unsafe_allow_html=True)
+                # 1. 上部に「タイトル・正答率」と「ボタン2つ」を横並びで配置
+                col_info_c, col_audio_c, col_bm_c = st.columns([3, 1, 1])
 
                 q_num_val = row.get("問題番号", "")
                 limb_val = row.get("肢", "")
                 q_key = f"{q_num_val}_{limb_val}"
                 is_bookmarked = q_key in st.session_state.user_bookmarks
 
-                col_audio_btn_c, col_bm_btn_c, _ = st.columns([1, 1, 1])
-                with col_audio_btn_c:
-                    if st.button("🔊 問題文を読み上げる", key=f"btn_audio_c_{ptr_c}", use_container_width=True):
+                with col_info_c:
+                    st.markdown(
+                        f'<div style="font-size: 1.1rem; font-weight: 700; color: #0F172A; line-height: 1.3;">'
+                        f'【 科目: {selected_cat} 】 ( {ptr_c + 1} / {len(cat_rows)} 問目 )<br>'
+                        f'<span style="font-size: 0.85rem; font-weight: 500; color: #475569;">正答率: {acc_rate_c:.1f}% ({st.session_state.c_total_count}問中 {st.session_state.c_correct_count}問正解)</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+                with col_audio_c:
+                    if st.button("🔊 音声", key=f"btn_audio_c_{ptr_c}", use_container_width=True):
                         q_file = get_audio_file_path("Q", q_num_val, limb_val)
                         if q_file:
                             st.audio(q_file, autoplay=True)
                         else:
-                            st.error(f"問題音声（Q_{q_num_val}_{limb_val}）が見つかりません。")
-                with col_bm_btn_c:
+                            st.error("音声なし")
+
+                with col_bm_c:
                     if is_bookmarked:
-                        if st.button("📌 付箋を外す", key=f"bm_remove_c_{ptr_c}", type="primary", use_container_width=True):
+                        if st.button("📌 解除", key=f"bm_remove_c_{ptr_c}", type="primary", use_container_width=True):
                             if remove_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.remove(q_key)
                                 st.toast("付箋を外しました", icon="🗑️")
                                 st.rerun()
                     else:
-                        if st.button("🔖 付箋をつける", key=f"bm_add_c_{ptr_c}", use_container_width=True):
+                        if st.button("🔖 付箋", key=f"bm_add_c_{ptr_c}", use_container_width=True):
                             if add_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.append(q_key)
                                 st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
 
-                st.markdown("<br>", unsafe_allow_html=True)
+                # 2. 問題番号・肢の補足表示
+                st.caption(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
 
+                # 3. メインの問題文カード
+                st.markdown(f'<div class="custom-question-card">{row.get("文章", "")}</div>', unsafe_allow_html=True)
+
+                # 4. 〇✖ボタン（問題文の直下に配置）
                 if not st.session_state.c_answered:
                     clicked_c = clickable_images(
                         [get_image_base64("images/btn_o.png"), get_image_base64("images/btn_x.png")]
@@ -1427,38 +1441,53 @@ elif menu == "付箋問題":
                 row = bookmark_rows.iloc[current_target_idx_bm]
                 acc_rate_bm = (st.session_state.bm_correct_count / st.session_state.bm_total_count * 100) if st.session_state.bm_total_count > 0 else 0
 
-                st.markdown(
-                    f'<div style="font-size: 1.25rem; font-weight: 700; color: #0F172A; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; margin-top: 8px; margin-bottom: 12px;">'
-                    f'<span>【 付箋問題 】 ( {ptr_bm + 1} / {len(bookmark_rows)} 問目 )</span>'
-                    f'<span style="font-size: 0.9rem; font-weight: 500; color: #475569; margin-left: 6px;"> ｜ 正答率: {acc_rate_bm:.1f}% ({st.session_state.bm_total_count}問中 {st.session_state.bm_correct_count}問正解)</span>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-                st.markdown(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
-                st.markdown(f'<div class="custom-question-card">{row.get("文章", "")}</div>', unsafe_allow_html=True)
+                # 1. 上部に「タイトル・正答率」と「ボタン2つ」を横並びで配置
+                col_info_bm, col_audio_bm, col_bm_bm = st.columns([3, 1, 1])
 
                 q_num_val = row.get("問題番号", "")
                 limb_val = row.get("肢", "")
                 q_key = f"{q_num_val}_{limb_val}"
+                is_bookmarked = q_key in st.session_state.user_bookmarks
 
-                col_audio_btn_bm, col_bm_toggle, col_space_bm = st.columns([1, 1, 1])
-                with col_audio_btn_bm:
-                    if st.button("🔊 問題文を読み上げる", key=f"btn_audio_bm_{ptr_bm}", use_container_width=True):
+                with col_info_bm:
+                    st.markdown(
+                        f'<div style="font-size: 1.1rem; font-weight: 700; color: #0F172A; line-height: 1.3;">'
+                        f'【 付箋問題 】 ( {ptr_bm + 1} / {len(bookmark_rows)} 問目 )<br>'
+                        f'<span style="font-size: 0.85rem; font-weight: 500; color: #475569;">正答率: {acc_rate_bm:.1f}% ({st.session_state.bm_total_count}問中 {st.session_state.bm_correct_count}問正解)</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+                with col_audio_bm:
+                    if st.button("🔊 音声", key=f"btn_audio_bm_{ptr_bm}", use_container_width=True):
                         q_file = get_audio_file_path("Q", q_num_val, limb_val)
                         if q_file:
                             st.audio(q_file, autoplay=True)
                         else:
-                            st.error(f"問題音声（Q_{q_num_val}_{limb_val}）が見つかりません。")
-                with col_bm_toggle:
-                    if st.button("📌 付箋を外す", key=f"bm_remove_btn_{ptr_bm}", type="primary", use_container_width=True):
-                        if remove_bookmark(user_id, q_key):
-                            if q_key in st.session_state.user_bookmarks:
-                                st.session_state.user_bookmarks.remove(q_key)
-                            st.toast("付箋を外しました", icon="🗑️")
-                            st.rerun()
+                            st.error("音声なし")
 
-                st.markdown("<br>", unsafe_allow_html=True)
+                with col_bm_bm:
+                    if is_bookmarked:
+                        if st.button("📌 解除", key=f"bm_remove_btn_{ptr_bm}", type="primary", use_container_width=True):
+                            if remove_bookmark(user_id, q_key):
+                                if q_key in st.session_state.user_bookmarks:
+                                    st.session_state.user_bookmarks.remove(q_key)
+                                st.toast("付箋を外しました", icon="🗑️")
+                                st.rerun()
+                    else:
+                        if st.button("🔖 付箋", key=f"bm_add_btn_{ptr_bm}", use_container_width=True):
+                            if add_bookmark(user_id, q_key):
+                                st.session_state.user_bookmarks.append(q_key)
+                                st.toast("付箋を追加しました！", icon="📌")
+                                st.rerun()
 
+                # 2. 問題番号・肢の補足表示
+                st.caption(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
+
+                # 3. メインの問題文カード
+                st.markdown(f'<div class="custom-question-card">{row.get("文章", "")}</div>', unsafe_allow_html=True)
+
+                # 4. 〇✖ボタン（問題文の直下に配置）
                 if not st.session_state.bm_answered:
                     clicked_bm = clickable_images(
                         [get_image_base64("images/btn_o.png"), get_image_base64("images/btn_x.png")]
