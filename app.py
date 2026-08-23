@@ -259,7 +259,7 @@ def reset_password_request(email):
         st.error(f"送信エラー: {e}")
         return False
 
-# # ==========================================
+# ==========================================
 # 1.5 付箋管理機能（Supabase DB）
 # ==========================================
 def get_user_bookmarks(user_id):
@@ -444,7 +444,7 @@ def show_delete_account_dialog():
         print(f"DB取得エラー: {e}")
 
     if is_active_recurring:
-        st.error("【解約が必要です】サブスクリプションの自動更新が有効です。")
+        st.error("<strong>【解約が必要です】</strong>サブスクリプションの自動更新が有効です。")
         st.write(
             "アカウントを削除する前に、先に『契約管理・解約』からサブスクリプションの解約（自動更新停止）を行ってください。"
             "解約を行わずにアカウントを削除すると、次回以降の自動請求が継続してしまう恐れがあります。"
@@ -467,11 +467,11 @@ def show_delete_account_dialog():
     st.warning("アカウントを削除すると、これまでの学習履歴や登録情報が完全に消去され、復元できなくなります。")
 
     st.markdown("""
-    ・注意事項および同意事項:
-    1. 解約済みサブスクリプションの残りの契約有効期間がある場合でも、退会完了と同時にサービスの利用権限は即時失効します。
-    2. 日割り計算等による返金・決済のキャンセル対応は理由を問わず一切行われません。
+    <strong>・注意事項および同意事項:</strong><br>
+    1. 解約済みサブスクリプションの残りの契約有効期間がある場合でも、退会完了と同時にサービスの利用権限は即時失効します。<br>
+    2. 日割り計算等による返金・決済のキャンセル対応は理由を問わず一切行われません。<br>
     3. アカウント削除後に同じメールアドレスで再登録しても、過去のデータは引き継げません。
-    """)
+    """, unsafe_allow_html=True)
 
     agree = st.checkbox("上記注意事項（残期間の放棄・返金不可・データ全削除）に同意します", key="chk_agree_delete")
 
@@ -498,39 +498,39 @@ def show_tokusho_dialog():
         pass
 
     st.markdown(f"""
-    ### 特定商取引法に基づく表記
+    <h3>特定商取引法に基づく表記</h3>
 
-    ・事業者名・代表運営者：
-    請求があった場合、遅滞なく開示いたします（下記お問い合わせ先までご連絡ください）。
+    <strong>・事業者名・代表運営者：</strong><br>
+    請求があった場合、遅滞なく開示いたします（下記お問い合わせ先までご連絡ください）。<br><br>
 
-    ・所在地・電話番号：
-    請求があった場合、遅滞なく開示いたします（下記お問い合わせ先までご連絡ください）。
+    <strong>・所在地・電話番号：</strong><br>
+    請求があった場合、遅滞なく開示いたします（下記お問い合わせ先までご連絡ください）。<br><br>
 
-    ・お問い合わせ先：
-    {contact_email}（またはアプリ内のお問い合わせフォーム）
+    <strong>・お問い合わせ先：</strong><br>
+    {contact_email}（またはアプリ内のお問い合わせフォーム）<br><br>
 
-    ・販売価格：
-    月額 3,980円（税込）
+    <strong>・販売価格：</strong><br>
+    月額 3,980円（税込）<br><br>
 
-    ・お支払い方法：
-    クレジットカード決済（Stripe）
+    <strong>・お支払い方法：</strong><br>
+    クレジットカード決済（Stripe）<br><br>
 
-    ・サービス提供時期：
-    決済手続き完了後、すぐにご利用いただけます。
+    <strong>・サービス提供時期：</strong><br>
+    決済手続き完了後、すぐにご利用いただけます。<br><br>
 
-    ・返品・キャンセル：
+    <strong>・返品・キャンセル：</strong><br>
     商品の性質上、購入後の返金やキャンセルには応じかねます（解約後は現在の有効期限まで利用可能です）。
 
-    ---
+    <hr>
 
-    ### 解約およびアカウント削除（退会）について
+    <h3>解約およびアカウント削除（退会）について</h3>
 
-    ・解約方法（サブスクリプション停止）：
-    サイドバーの「契約管理・解約」ボタンからいつでも自動更新の停止が可能です。解約手続き後も、現在の契約有効期限まではサービスをご利用いただけます。
+    <strong>・解約方法（サブスクリプション停止）：</strong><br>
+    サイドバーの「契約管理・解約」ボタンからいつでも自動更新の停止が可能です。解約手続き後も、現在の契約有効期限まではサービスをご利用いただけます。<br><br>
 
-    ・アカウント完全削除（退会）：
+    <strong>・アカウント完全削除（退会）：</strong><br>
     「契約管理・解約」にて自動更新を停止後、アプリ内の退会ボタンから即時アカウントを削除可能です。または上記お問い合わせ先メールアドレスまで「退会希望」と記載してご連絡いただくことでも対応いたします。
-    """)
+    """, unsafe_allow_html=True)
 
     col_dialog_close, col_dialog_delete = st.columns(2)
     with col_dialog_close:
@@ -972,6 +972,7 @@ with col_stripe:
         unsafe_allow_html=True
     )
 
+# サイドバーに「パスワード変更」ボタンを移動
 if st.button("パスワード変更", key="btn_sidebar_change_pw", use_container_width=True):
     show_change_password_dialog()
 
@@ -1028,6 +1029,7 @@ if menu == "年度別":
                 st.session_state.y_correct_count = 0
                 st.session_state.y_total_count = 0
                 st.session_state.teacher_state = "normal"
+                st.session_state.y_active_audio = None
                 reset_inline_chat()
 
                 indices = list(range(len(session_rows)))
@@ -1051,6 +1053,7 @@ if menu == "年度別":
                     st.session_state.y_answered = False
                     st.session_state.y_user_ans = None
                     st.session_state.teacher_state = "normal"
+                    st.session_state.y_active_audio = None
                     reset_inline_chat()
                     st.rerun()
 
@@ -1078,8 +1081,9 @@ if menu == "年度別":
                     if st.button("🔊 音声", key=f"btn_audio_y_{ptr}", use_container_width=True):
                         q_file = get_audio_file_path("Q", q_num_val, limb_val)
                         if q_file:
-                            st.audio(q_file, autoplay=True)
+                            st.session_state.y_active_audio = q_file
                         else:
+                            st.session_state.y_active_audio = None
                             st.error("音声なし")
 
                 with col_bm:
@@ -1095,6 +1099,10 @@ if menu == "年度別":
                                 st.session_state.user_bookmarks.append(q_key)
                                 st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
+
+                # 音声プレイヤーを幅いっぱいに表示して音量バー等が見えるようにする
+                if st.session_state.get("y_active_audio"):
+                    st.audio(st.session_state.y_active_audio, autoplay=True)
 
                 # 2. 問題番号・肢の補足表示
                 st.caption(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
@@ -1160,6 +1168,7 @@ if menu == "年度別":
                         st.session_state.y_answered = False
                         st.session_state.y_user_ans = None
                         st.session_state.teacher_state = "normal"
+                        st.session_state.y_active_audio = None
                         reset_inline_chat()
                         st.rerun()
                         
@@ -1186,6 +1195,7 @@ if menu == "年度別":
                     st.session_state.y_correct_count = 0
                     st.session_state.y_total_count = 0
                     st.session_state.teacher_state = "normal"
+                    st.session_state.y_active_audio = None
                     reset_inline_chat()
                     st.rerun()
 
@@ -1219,6 +1229,7 @@ elif menu == "科目別":
                 st.session_state.c_correct_count = 0
                 st.session_state.c_total_count = 0
                 st.session_state.teacher_state = "normal"
+                st.session_state.c_active_audio = None
                 reset_inline_chat()
 
                 indices_c = list(range(len(cat_rows)))
@@ -1242,6 +1253,7 @@ elif menu == "科目別":
                     st.session_state.c_answered = False
                     st.session_state.c_user_ans = None
                     st.session_state.teacher_state = "normal"
+                    st.session_state.c_active_audio = None
                     reset_inline_chat()
                     st.rerun()
 
@@ -1269,8 +1281,9 @@ elif menu == "科目別":
                     if st.button("🔊 音声", key=f"btn_audio_c_{ptr_c}", use_container_width=True):
                         q_file = get_audio_file_path("Q", q_num_val, limb_val)
                         if q_file:
-                            st.audio(q_file, autoplay=True)
+                            st.session_state.c_active_audio = q_file
                         else:
+                            st.session_state.c_active_audio = None
                             st.error("音声なし")
 
                 with col_bm_c:
@@ -1286,6 +1299,10 @@ elif menu == "科目別":
                                 st.session_state.user_bookmarks.append(q_key)
                                 st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
+
+                # 音声プレイヤーを幅いっぱいに表示して音量バー等が見えるようにする
+                if st.session_state.get("c_active_audio"):
+                    st.audio(st.session_state.c_active_audio, autoplay=True)
 
                 # 2. 問題番号・肢の補足表示
                 st.caption(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
@@ -1351,6 +1368,7 @@ elif menu == "科目別":
                         st.session_state.c_answered = False
                         st.session_state.c_user_ans = None
                         st.session_state.teacher_state = "normal"
+                        st.session_state.c_active_audio = None
                         reset_inline_chat()
                         st.rerun()
                         
@@ -1377,6 +1395,7 @@ elif menu == "科目別":
                     st.session_state.c_correct_count = 0
                     st.session_state.c_total_count = 0
                     st.session_state.teacher_state = "normal"
+                    st.session_state.c_active_audio = None
                     reset_inline_chat()
                     st.rerun()
 
@@ -1413,6 +1432,7 @@ elif menu == "付箋問題":
                 st.session_state.bm_correct_count = 0
                 st.session_state.bm_total_count = 0
                 st.session_state.teacher_state = "normal"
+                st.session_state.bm_active_audio = None
                 reset_inline_chat()
 
                 indices_bm = list(range(len(bookmark_rows)))
@@ -1435,6 +1455,7 @@ elif menu == "付箋問題":
                     st.session_state.bm_answered = False
                     st.session_state.bm_user_ans = None
                     st.session_state.teacher_state = "normal"
+                    st.session_state.bm_active_audio = None
                     reset_inline_chat()
                     st.rerun()
 
@@ -1462,8 +1483,9 @@ elif menu == "付箋問題":
                     if st.button("🔊 音声", key=f"btn_audio_bm_{ptr_bm}", use_container_width=True):
                         q_file = get_audio_file_path("Q", q_num_val, limb_val)
                         if q_file:
-                            st.audio(q_file, autoplay=True)
+                            st.session_state.bm_active_audio = q_file
                         else:
+                            st.session_state.bm_active_audio = None
                             st.error("音声なし")
 
                 with col_bm_bm:
@@ -1480,6 +1502,10 @@ elif menu == "付箋問題":
                                 st.session_state.user_bookmarks.append(q_key)
                                 st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
+
+                # 音声プレイヤーを幅いっぱいに表示して音量バー等が見えるようにする
+                if st.session_state.get("bm_active_audio"):
+                    st.audio(st.session_state.bm_active_audio, autoplay=True)
 
                 # 2. 問題番号・肢の補足表示
                 st.caption(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
@@ -1545,6 +1571,7 @@ elif menu == "付箋問題":
                         st.session_state.bm_answered = False
                         st.session_state.bm_user_ans = None
                         st.session_state.teacher_state = "normal"
+                        st.session_state.bm_active_audio = None
                         reset_inline_chat()
                         st.rerun()
                         
@@ -1571,6 +1598,7 @@ elif menu == "付箋問題":
                     st.session_state.bm_correct_count = 0
                     st.session_state.bm_total_count = 0
                     st.session_state.teacher_state = "normal"
+                    st.session_state.bm_active_audio = None
                     reset_inline_chat()
                     st.rerun()
 
