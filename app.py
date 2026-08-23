@@ -1079,14 +1079,18 @@ if menu == "年度別":
                             st.error(f"問題音声（Q_{q_num_val}_{limb_val}）が見つかりません。")
                 with col_bm_btn:
                     if is_bookmarked:
-                        if st.button("📌 付箋を外す", key=f"bm_remove_y_{ptr}", use_container_width=True):
+                        # 付箋がついている状態：色を変える（type="primary"）
+                        if st.button("📌 付箋を外す", key=f"bm_remove_y_{ptr}", type="primary", use_container_width=True):
                             if remove_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.remove(q_key)
+                                st.toast("付箋を外しました", icon="🗑️")
                                 st.rerun()
                     else:
+                        # 付箋がついていない状態：通常のボタン
                         if st.button("🔖 付箋をつける", key=f"bm_add_y_{ptr}", use_container_width=True):
                             if add_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.append(q_key)
+                                st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
 
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -1257,14 +1261,16 @@ elif menu == "科目別":
                             st.error(f"問題音声（Q_{q_num_val}_{limb_val}）が見つかりません。")
                 with col_bm_btn_c:
                     if is_bookmarked:
-                        if st.button("📌 付箋を外す", key=f"bm_remove_c_{ptr_c}", use_container_width=True):
+                        if st.button("📌 付箋を外す", key=f"bm_remove_c_{ptr_c}", type="primary", use_container_width=True):
                             if remove_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.remove(q_key)
+                                st.toast("付箋を外しました", icon="🗑️")
                                 st.rerun()
                     else:
                         if st.button("🔖 付箋をつける", key=f"bm_add_c_{ptr_c}", use_container_width=True):
                             if add_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.append(q_key)
+                                st.toast("付箋を追加しました！", icon="📌")
                                 st.rerun()
 
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -1439,10 +1445,11 @@ elif menu == "付箋問題":
                         else:
                             st.error(f"問題音声（Q_{q_num_val}_{limb_val}）が見つかりません。")
                 with col_bm_toggle:
-                    if st.button("📌 付箋を外す", key=f"bm_remove_btn_{ptr_bm}", use_container_width=True):
+                    if st.button("📌 付箋を外す", key=f"bm_remove_btn_{ptr_bm}", type="primary", use_container_width=True):
                         if remove_bookmark(user_id, q_key):
                             if q_key in st.session_state.user_bookmarks:
                                 st.session_state.user_bookmarks.remove(q_key)
+                            st.toast("付箋を外しました", icon="🗑️")
                             st.rerun()
 
                 st.markdown("<br>", unsafe_allow_html=True)
