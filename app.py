@@ -500,12 +500,14 @@ def show_delete_account_dialog():
 def show_tokusho_dialog():
     contact_email = "お問い合わせ用メールアドレス未設定"
     try:
-        if "gmail_receiver" in st.secrets:
-            contact_email = st.secrets["gmail_receiver"]
-        elif "app" in st.secrets and "contact_email" in st.secrets["app"]:
-            contact_email = st.secrets["app"]["contact_email"]
-        elif "contact_email" in st.secrets:
-            contact_email = st.secrets["contact_email"]
+        # 報告メール機能と同じ安全な方法でsecretsから取得する
+        receiver_email = st.secrets.get("gmail_receiver", st.secrets.get("gmail", {}).get("receiver", ""))
+        sender_email = st.secrets.get("gmail_sender", st.secrets.get("gmail", {}).get("sender", ""))
+        
+        if receiver_email:
+            contact_email = receiver_email
+        elif sender_email:
+            contact_email = sender_email
     except Exception:
         pass
 
@@ -1089,7 +1091,7 @@ if menu == "年度別":
 
                 row = session_rows.iloc[current_target_idx]
                 acc_rate = (st.session_state.y_correct_count / st.session_state.y_total_count * 100) if st.session_state.y_total_count > 0 else 0
-                
+
                 # 1. 上部に「タイトル・正答率」と「ボタン2つ」を横並びで配置
                 col_info, col_audio, col_bm = st.columns([3, 1, 1])
 
