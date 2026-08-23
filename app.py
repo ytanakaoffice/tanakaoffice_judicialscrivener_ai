@@ -972,17 +972,17 @@ with col_stripe:
         unsafe_allow_html=True
     )
 
-col_pw_side, col_delete_side = st.sidebar.columns(2)
-with col_pw_side:
-    if st.button("パスワード変更", key="btn_sidebar_change_pw", use_container_width=True):
-        show_change_password_dialog()
+if st.button("パスワード変更", key="btn_sidebar_change_pw", use_container_width=True):
+    show_change_password_dialog()
 
+col_delete_side, col_tokusho_side = st.sidebar.columns(2)
 with col_delete_side:
     if st.button("退会手続き", key="btn_sidebar_delete_account", use_container_width=True):
         show_delete_account_dialog()
 
-if st.button("特商法表記", key="btn_sidebar_tokusho", use_container_width=True):
-    show_tokusho_dialog()
+with col_tokusho_side:
+    if st.button("特商法表記", key="btn_sidebar_tokusho", use_container_width=True):
+        show_tokusho_dialog()
 
 st.sidebar.markdown("---")
 
@@ -1005,7 +1005,11 @@ if menu == "年度別":
             return (era_val, year_val, s)
 
         sessions = sorted(list(set([extract_session(q) for q in all_questions])), key=session_sort_key)
-        selected_session = st.selectbox("演習する年度・回を選んでください", sessions, key="y_session")
+        
+        col_session, col_question = st.columns(2)
+
+        with col_session:
+            selected_session = st.selectbox("演習する年度・回を選んでください", sessions, key="y_session")
 
         session_rows = df[df["問題番号"].astype(str).str.startswith(selected_session)].reset_index(drop=True)
 
@@ -1038,7 +1042,8 @@ if menu == "年度別":
                 current_target_idx = order[ptr]
                 q_options = [f"第 {i+1} 問" for i in range(len(session_rows))]
 
-                selected_q = st.selectbox("現在の問題（選択して移動も可能）:", q_options, index=current_target_idx)
+                with col_question:
+                    selected_q = st.selectbox("現在の問題（選択して移動も可能）:", q_options, index=current_target_idx, key="y_q_select")
                 
                 target_start_idx = int(selected_q.replace("第 ", "").replace(" 問", "")) - 1
                 if target_start_idx != current_target_idx:
@@ -1054,22 +1059,20 @@ if menu == "年度別":
 
                 st.markdown(
                     f'<div style="font-size: 1.25rem; font-weight: 700; color: #0F172A; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; margin-top: 8px; margin-bottom: 12px;">'
-                    f'<span>【 {selected_session} 】 ( {ptr + 1} / {len(session_rows)} 問目 )</span>'
+                    f'<span>【 年度: {selected_session} 】 ( {ptr + 1} / {len(session_rows)} 問目 )</span>'
                     f'<span style="font-size: 0.9rem; font-weight: 500; color: #475569; margin-left: 6px;"> ｜ 正答率: {acc_rate:.1f}% ({st.session_state.y_total_count}問中 {st.session_state.y_correct_count}問正解)</span>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
-                st.markdown(f"分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
+                st.markdown(f"問題番号: {row.get('問題番号', '')} ｜ 分野: {row.get('分野', '')} ｜ 肢: {row.get('肢', '')}")
                 st.markdown(f'<div class="custom-question-card">{row.get("文章", "")}</div>', unsafe_allow_html=True)
 
                 q_num_val = row.get("問題番号", "")
                 limb_val = row.get("肢", "")
-                
-                # 付箋ボタンの追加
                 q_key = f"{q_num_val}_{limb_val}"
                 is_bookmarked = q_key in st.session_state.user_bookmarks
-                
-                col_audio_btn, col_bm_btn, col_audio_space = st.columns([1, 1, 1])
+
+                col_audio_btn, col_bm_btn, _ = st.columns([1, 1, 1])
                 with col_audio_btn:
                     if st.button("🔊 問題文を読み上げる", key=f"btn_audio_y_{ptr}", use_container_width=True):
                         q_file = get_audio_file_path("Q", q_num_val, limb_val)
@@ -1079,14 +1082,12 @@ if menu == "年度別":
                             st.error(f"問題音声（Q_{q_num_val}_{limb_val}）が見つかりません。")
                 with col_bm_btn:
                     if is_bookmarked:
-                        # 付箋がついている状態：色を変える（type="primary"）
                         if st.button("📌 付箋を外す", key=f"bm_remove_y_{ptr}", type="primary", use_container_width=True):
                             if remove_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.remove(q_key)
                                 st.toast("付箋を外しました", icon="🗑️")
                                 st.rerun()
                     else:
-                        # 付箋がついていない状態：通常のボタン
                         if st.button("🔖 付箋をつける", key=f"bm_add_y_{ptr}", use_container_width=True):
                             if add_bookmark(user_id, q_key):
                                 st.session_state.user_bookmarks.append(q_key)
@@ -1181,13 +1182,18 @@ if menu == "年度別":
                     reset_inline_chat()
                     st.rerun()
 
+
 # ルート2：科目別
 elif menu == "科目別":
     render_header_image()
 
     if not df.empty and "分野" in df.columns:
         categories = sorted(df["分野"].dropna().unique())
-        selected_cat = st.selectbox("科目を選択してください", categories, key="c_cat")
+        
+        col_cat, col_question_c = st.columns(2)
+
+        with col_cat:
+            selected_cat = st.selectbox("科目を選択してください", categories, key="c_cat")
 
         cat_rows = df[df["分野"] == selected_cat].reset_index(drop=True)
 
@@ -1220,7 +1226,8 @@ elif menu == "科目別":
                 current_target_idx_c = order_c[ptr_c]
                 q_options_c = [f"第 {i+1} 問" for i in range(len(cat_rows))]
 
-                selected_q_c = st.selectbox("現在の問題（選択して移動も可能）:", q_options_c, index=current_target_idx_c)
+                with col_question_c:
+                    selected_q_c = st.selectbox("現在の問題（選択して移動も可能）:", q_options_c, index=current_target_idx_c, key="c_q_select")
                 
                 target_start_idx_c = int(selected_q_c.replace("第 ", "").replace(" 問", "")) - 1
                 if target_start_idx_c != current_target_idx_c:
@@ -1246,12 +1253,10 @@ elif menu == "科目別":
 
                 q_num_val = row.get("問題番号", "")
                 limb_val = row.get("肢", "")
-
-                # 付箋ボタンの追加
                 q_key = f"{q_num_val}_{limb_val}"
                 is_bookmarked = q_key in st.session_state.user_bookmarks
 
-                col_audio_btn_c, col_bm_btn_c, col_audio_space_c = st.columns([1, 1, 1])
+                col_audio_btn_c, col_bm_btn_c, _ = st.columns([1, 1, 1])
                 with col_audio_btn_c:
                     if st.button("🔊 問題文を読み上げる", key=f"btn_audio_c_{ptr_c}", use_container_width=True):
                         q_file = get_audio_file_path("Q", q_num_val, limb_val)
