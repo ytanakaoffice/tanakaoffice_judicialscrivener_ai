@@ -112,7 +112,7 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
     <div style="background-color: #ffffff; padding: 16px; border-radius: 12px; border: 1px solid #e0e0e0; font-family: sans-serif; box-sizing: border-box;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <span id="batch-info" style="font-size: 0.85rem; font-weight: bold; color: #4f46e5; background: #eeeefd; padding: 4px 10px; border-radius: 6px;">
-                グループ {current_batch + 1} / {total_batches} （10問単位）
+                グループ {current_batch + 1} / {total_batches} （20問単位） <!-- ← 【修正】10を20に変更 -->
             </span>
             <span id="playlist-status" style="font-size: 0.85rem; color: #64748b;"></span>
         </div>
@@ -173,11 +173,11 @@ def render_continuous_player(playlist, current_batch, total_batches, auto_start=
         }}
 
         function autoClickNextBatch() {{
-            infoEl.innerText = "次の10問を自動読み込み中...";
+            infoEl.innerText = "次の20問を自動読み込み中..."; // ← 【修正】10を20に変更
             setTimeout(function() {{
                 try {{
                     const buttons = Array.from(window.parent.document.querySelectorAll('button'));
-                    const nextBtn = buttons.find(b => b.innerText && b.innerText.includes('次の10問へ'));
+                    const nextBtn = buttons.find(b => b.innerText && b.innerText.includes('次の20問へ')); // ← 【修正】自動クリック対象も20に変更
                     if (nextBtn) {{
                         nextBtn.click();
                     }}
@@ -1940,7 +1940,7 @@ elif menu == "付箋問題":
 # ルート3：過去問聞き流し
 # ==========================================
 elif menu == "過去問聞き流し":
-    render_header_image("top-always")
+    # render_header_image("top-always")  ← この行を削除またはコメントアウトします
     st.subheader("🎧 過去問連続聞き流しモード")
 
     listen_type = st.radio("絞り込み方法を選択", ["年度別", "科目別"], horizontal=True, key="listen_type_radio")
@@ -1977,7 +1977,7 @@ elif menu == "過去問聞き流し":
             target_rows = df[df["分野"] == sel_cat].reset_index(drop=True)
 
     if not target_rows.empty:
-        batch_size = 10
+        batch_size = 20
         total_questions = len(target_rows)
         total_batches = (total_questions + batch_size - 1) // batch_size
 
@@ -2001,6 +2001,13 @@ elif menu == "過去問聞き流し":
             else:
                 batch_options.append(batch_str + " 🔒[有料会員限定]")
 
+        # ▼▼▼ 追加する同期処理 ▼▼▼
+        if "selected_batch_str" in st.session_state:
+            expected_str = batch_options[st.session_state.listen_batch_page]
+            if st.session_state.selected_batch_str != expected_str:
+                st.session_state.selected_batch_str = expected_str
+        # ▲▲▲ ここまで ▲▲▲
+
         def sync_batch_selection():
             try:
                 st.session_state.listen_batch_page = batch_options.index(st.session_state.selected_batch_str)
@@ -2022,7 +2029,7 @@ elif menu == "過去問聞き流し":
             col1, col2 = st.columns(2)
             with col2:
                 if current_batch_page + 1 < total_batches:
-                    if st.button("次の10問へスキップ ⏩", key="btn_skip_batch_lock"):
+                    if st.button("次の20問へスキップ ⏩", key="btn_skip_batch_lock"): # ← 【修正】10を20に変更
                         st.session_state.listen_batch_page += 1
                         st.session_state.auto_play_next = True
                         st.rerun()
@@ -2090,13 +2097,13 @@ elif menu == "過去問聞き流し":
                 col1, col2 = st.columns(2)
                 with col1:
                     if current_batch_page > 0:
-                        if st.button("⏮ 前の10問へ", use_container_width=True, key="btn_prev_batch"):
+                        if st.button("⏮ 前の20問へ", use_container_width=True, key="btn_prev_batch"): # ← 【修正】10を20に変更
                             st.session_state.listen_batch_page -= 1
                             st.session_state.auto_play_next = True
                             st.rerun()
                 with col2:
                     if current_batch_page + 1 < total_batches:
-                        if st.button("次の10問へ ⏩", use_container_width=True, key="btn_next_batch"):
+                        if st.button("次の20問へ ⏩", use_container_width=True, key="btn_next_batch"): # ← 【修正】10を20に変更
                             st.session_state.listen_batch_page += 1
                             st.session_state.auto_play_next = True
                             st.rerun()
