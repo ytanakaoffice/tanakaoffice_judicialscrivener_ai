@@ -460,8 +460,13 @@ def show_auth_dialog():
 
     with tab_signup:
         st.markdown("### 新規会員登録")
-        if st.button("利用規約を確認する", key="dlg_btn_terms", use_container_width=True):
-            show_terms_dialog()
+        # ボタンとダイアログ呼び出しをやめて、expander（折りたたみ）に変更
+        with st.expander("利用規約を確認する"):
+            if os.path.exists("TERMS.md"):
+                with open("TERMS.md", "r", encoding="utf-8") as f:
+                    st.markdown(f.read())
+            else:
+                st.error("TERMS.md ファイルが見つかりません。")
             
         with st.form("dlg_signup_form"):
             new_email = st.text_input("メールアドレス", key="dlg_signup_email")
