@@ -1014,7 +1014,7 @@ def reset_inline_chat():
     st.session_state.inline_conv_id = ""
     st.session_state.inline_waiting = False
 
-MAX_CHAT = 30 if is_premium else 2
+MAX_CHAT = 30 if is_premium else 5
 
 def render_ai_teacher():
     if st.session_state.get("fast_mode", False):
@@ -1056,7 +1056,7 @@ def render_inline_chat(row):
         if is_premium:
             st.warning("本日のラリー制限（30回）に達しました。明日またお越しください！")
         else:
-            st.warning("無料版の質問回数（2回）に達しました。これ以上の質問は新規会員登録→決済をして有料プランにご加入後ご利用いただけます。")
+            st.warning("無料版の質問回数（5回）に達しました。これ以上の質問は新規会員登録→決済をして有料プランにご加入後ご利用いただけます。")
             if st.button("🔓 制限を解除する（会員登録・決済へ）", key="inline_unlock_btn"):
                 if not is_logged_in:
                     show_auth_dialog()
@@ -1106,11 +1106,11 @@ render_ai_teacher()
 st.sidebar.title("メニュー")
 
 if not is_logged_in:
-    st.sidebar.info("👤 現在無料お試しモードです\n(令和8年のみ閲覧・AIチャット2回可)")
+    st.sidebar.info("👤 現在無料お試しモードです\n(令和8年のみ閲覧・AIチャット5回可)")
     if st.sidebar.button("ログイン / 新規登録", type="primary", use_container_width=True):
         show_auth_dialog()
 elif not is_premium:
-    st.sidebar.info(f"👤 無料会員: {user_email}\n(令和8年のみ閲覧・AIチャット2回可)")
+    st.sidebar.info(f"👤 無料会員: {user_email}\n(令和8年のみ閲覧・AIチャット5回可)")
     if st.sidebar.button("🔓 有料プランへ登録 (全機能解放)", type="primary", use_container_width=True):
         show_payment_dialog()
     if st.sidebar.button("ログアウト", use_container_width=True):
@@ -2126,7 +2126,7 @@ elif menu == "AIに質問（チャット）":
         if is_premium:
             st.warning("本日のラリー制限（30回）に達しました。明日またお越しください！")
         else:
-            st.warning("無料版の質問回数（2回）に達しました。これ以上の質問は新規会員登録→決済をして有料プランにご加入後ご利用いただけます。")
+            st.warning("無料版の質問回数（5回）に達しました。これ以上の質問は新規会員登録→決済をして有料プランにご加入後ご利用いただけます。")
             if st.button("🔓 制限を解除する（会員登録・決済へ）", key="main_chat_unlock"):
                 if not is_logged_in:
                     show_auth_dialog()
