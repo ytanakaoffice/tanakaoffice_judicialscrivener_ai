@@ -2131,7 +2131,7 @@ elif menu == "AIに質問（チャット）":
         if is_premium:
             st.warning("本日のラリー制限（30回）に達しました。明日またお越しください！")
         else:
-            st.warning("無料版の質問回数（5回）に達しました。これ以上の質問は新規会員登録→決済をして有料プランにご加入後ご利用いただけます。")
+            st.warning("無料版の質問回数（2回）に達しました。これ以上の質問は新規会員登録→決済をして有料プランにご加入後ご利用いただけます。")
             if st.button("🔓 制限を解除する（会員登録・決済へ）", key="main_chat_unlock"):
                 if not is_logged_in:
                     show_auth_dialog()
